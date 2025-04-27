@@ -1,7 +1,7 @@
-# Blockgame: Minecraft Clone
+# Blockgame
 
 ## Overview
-This project is a super basic clone of an early alpha version of Minecraft, implemented in Java. It includes fundamental functionalities such as player movement and world generation.
+This project is a super basic 3D block game with heavy inspiration taken from early alpha versios of Minecraft, implemented in Java. It includes fundamental functionalities such as player movement and world generation.
 
 ## Features
 - Player movement
