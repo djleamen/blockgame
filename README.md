@@ -26,6 +26,7 @@ This project is a super basic clone of an early alpha version of Minecraft, impl
    java -jar target/mc-clone-1.0-SNAPSHOT-shaded.jar
    ```
    Mac Users:
+   ```
    java -XstartOnFirstThread -jar target/mc-clone-1.0-SNAPSHOT-shaded.jar
    ```
 
