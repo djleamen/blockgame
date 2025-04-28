@@ -1,7 +1,7 @@
-# Minecraft Clone
+# Blockgame
 
 ## Overview
-This project is a super basic clone of an early alpha version of Minecraft, implemented in Java. It includes fundamental functionalities such as player movement and world generation.
+This project is a super basic 3D block game with heavy inspiration taken from early alpha versions of Minecraft, implemented in Java. It includes fundamental functionalities such as player movement, block breaking/placing, and world generation.
 
 ## Features
 - Player movement
@@ -26,6 +26,7 @@ This project is a super basic clone of an early alpha version of Minecraft, impl
    java -jar target/mc-clone-1.0-SNAPSHOT-shaded.jar
    ```
    Mac Users:
+   ```
    java -XstartOnFirstThread -jar target/mc-clone-1.0-SNAPSHOT-shaded.jar
    ```
 
@@ -34,7 +35,6 @@ This project is a super basic clone of an early alpha version of Minecraft, impl
 - Maven
 
 ## Future Improvements
-- Add breaking / placing blocks
 - Add block textures
 - Add more block types
 - Enhance world generation algorithms
