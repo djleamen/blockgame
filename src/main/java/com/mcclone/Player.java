@@ -20,10 +20,16 @@ public class Player {
     public Player(float x,float y,float z){this.x=x;this.y=y;this.z=z;}
 
     // physics
-    public void tickPhysics(World world){
-        vy-=GRAVITY; y+=vy;
-        float ground=world.groundHeight(x,z)+EYE;
-        if (y<ground){y=ground;vy=0;}
+    public void tickPhysics(World world) {
+        vy -= GRAVITY;
+        y += vy;
+    
+        float ground = world.groundHeight(x, z) + 2.0f; // player is 2 blocks tall
+    
+        if (vy <= 0 && (y - ground) < 0.5f) {
+            y = ground;
+            vy = 0;
+        }
     }
     public boolean onGround(){return vy==0;}
     public void move(float dx,float dz){x+=dx;z+=dz;}

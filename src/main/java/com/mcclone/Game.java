@@ -19,6 +19,9 @@ public class Game {
     private long window;
     private final World  world  = new World();
     private final Player player = new Player(0f, 1f + 1.62f, -2f);
+    private double lastBreakTime = 0;
+    private double lastPlaceTime = 0;
+    private static final double COOLDOWN = 0.2;
 
     public Game() {
         if (!glfwInit()) throw new IllegalStateException("GLFW init failed");
@@ -98,6 +101,7 @@ public class Game {
 
         double[] mx = new double[1], my = new double[1];
         glfwGetCursorPos(window, mx, my);
+        raycastForBlockInteraction();
         player.addYaw  ((float)(mx[0] - 400) * 0.08f);
         player.addPitch((float)(300 - my[0]) * 0.08f);
         glfwSetCursorPos(window, 400, 300);
@@ -106,6 +110,52 @@ public class Game {
     }
 
     private boolean key(int k) { return glfwGetKey(window, k) == GLFW_PRESS; }
+
+    // raycast to find blocks for interaction (break/place)
+    private void raycastForBlockInteraction() {
+        float yaw = (float) Math.toRadians(player.getYaw());
+        float pitch = (float) Math.toRadians(player.getPitch());
+    
+        float ox = player.x;
+        float oy = player.y - Player.getEYE() + 1.62f;
+        float oz = player.z;
+    
+        float dx = (float) (Math.sin(yaw) * Math.cos(pitch));
+        float dy = (float) (Math.sin(pitch));
+        float dz = (float) (-Math.cos(yaw) * Math.cos(pitch));
+    
+        float reach = 5.0f;
+        double now = glfwGetTime();
+    
+        int lastAirX = -1, lastAirY = -1, lastAirZ = -1;
+    
+        for (float t = 0; t <= reach; t += 0.05f) {
+            float cx = ox + dx * t;
+            float cy = oy + dy * t;
+            float cz = oz + dz * t;
+    
+            int bx = (int) Math.floor(cx + World.SIZE / 2f);
+            int by = (int) Math.floor(cy);
+            int bz = (int) Math.floor(-cz);
+    
+            if (!world.hasBlock(bx, by, bz)) {
+                lastAirX = bx;
+                lastAirY = by;
+                lastAirZ = bz;
+                continue;
+            } else {
+                if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && (now - lastBreakTime) >= COOLDOWN) {
+                    world.breakBlock(bx, by, bz);
+                    lastBreakTime = now;
+                }
+                if (key(GLFW_KEY_ENTER) && (now - lastPlaceTime) >= COOLDOWN && lastAirX != -1) {
+                    world.placeBlock(lastAirX, lastAirY, lastAirZ);
+                    lastPlaceTime = now;
+                }
+                break;
+            }
+        }
+    }
 
     public static void main(String[] args) {
         new Game().run();
