@@ -4,6 +4,7 @@
 ![Java](https://img.shields.io/badge/Java-8%2B-red?logo=java)
 ![Maven](https://img.shields.io/badge/Built%20With-Maven-blue)
 ![Last Commit](https://img.shields.io/github/last-commit/djleamen/blockgame)
+![OpenGL](https://img.shields.io/badge/Rendering-OpenGL-orange)
 ![Inspired By](https://img.shields.io/badge/inspired%20by-Minecraft-lightgrey?logo=minecraft)
 
 ## Overview
