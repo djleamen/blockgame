@@ -44,6 +44,9 @@ public class Game {
         glEnable(GL_DEPTH_TEST);
         glClearColor(0.55f, 0.8f, 1.0f, 1);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        
+        Block.initTextures();
+        TextureLoader.enableTextures();
     }
 
     // set the perspective projection matrix 
@@ -81,6 +84,8 @@ public class Game {
             glfwSwapBuffers(window);
             glfwPollEvents();
         }
+        
+        TextureLoader.cleanup();
         glfwTerminate();
     }
 
@@ -90,13 +95,13 @@ public class Game {
 
         float yaw = player.getYaw();
         if (key(GLFW_KEY_W)) player.move((float) Math.sin(Math.toRadians(yaw)) * speed,
-                                         (float)-Math.cos(Math.toRadians(yaw)) * speed);
+                                         (float)-Math.cos(Math.toRadians(yaw)) * speed, world);
         if (key(GLFW_KEY_S)) player.move((float)-Math.sin(Math.toRadians(yaw)) * speed,
-                                         (float) Math.cos(Math.toRadians(yaw)) * speed);
+                                         (float) Math.cos(Math.toRadians(yaw)) * speed, world);
         if (key(GLFW_KEY_A)) player.move((float)-Math.cos(Math.toRadians(yaw)) * speed,
-                                         (float)-Math.sin(Math.toRadians(yaw)) * speed);
+                                         (float)-Math.sin(Math.toRadians(yaw)) * speed, world);
         if (key(GLFW_KEY_D)) player.move((float) Math.cos(Math.toRadians(yaw)) * speed,
-                                         (float) Math.sin(Math.toRadians(yaw)) * speed);
+                                         (float) Math.sin(Math.toRadians(yaw)) * speed, world);
         if (key(GLFW_KEY_SPACE)) player.jump(0.18f);
 
         double[] mx = new double[1], my = new double[1];
