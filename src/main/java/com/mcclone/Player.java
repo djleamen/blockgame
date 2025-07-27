@@ -24,15 +24,14 @@ public class Player {
         vy -= GRAVITY;
         float newY = y + vy;
     
-        // Check collision at current x,z position for the new y position
+        // check collision at current x,z position for the new y position
         float ground = world.groundHeight(x, z) + 2.0f; // player is 2 blocks tall
     
-        // Only land on ground if falling down and close to ground level
+        // only land on ground if falling down and close to ground level
         if (vy <= 0 && newY <= ground + 0.1f) {
             y = ground;
             vy = 0;
         } else {
-            // Otherwise, apply normal physics movement
             y = newY;
         }
     }
@@ -95,6 +94,100 @@ public class Player {
     }
     
     public void jump(float v){if(onGround())vy=v;}
+
+    public void checkAndFixStuckInBlock(World world) {
+        final float PLAYER_WIDTH = 0.6f;
+        final float PLAYER_HEIGHT = 2.0f;
+        
+        // calculate player's current bounding box
+        float minX = x - PLAYER_WIDTH/2;
+        float maxX = x + PLAYER_WIDTH/2;
+        float minZ = z - PLAYER_WIDTH/2;
+        float maxZ = z + PLAYER_WIDTH/2;
+        float minY = y - PLAYER_HEIGHT;
+        float maxY = y;
+        
+        // convert to block coordinates
+        int minBlockX = (int) Math.floor(minX + World.SIZE / 2f);
+        int maxBlockX = (int) Math.floor(maxX + World.SIZE / 2f);
+        int minBlockZ = (int) Math.floor(-maxZ);
+        int maxBlockZ = (int) Math.floor(-minZ);
+        int minBlockY = (int) Math.floor(minY);
+        int maxBlockY = (int) Math.floor(maxY);
+        
+        // check if player is intersecting with any block
+        boolean stuck = false;
+        for (int bx = minBlockX; bx <= maxBlockX && !stuck; bx++) {
+            for (int bz = minBlockZ; bz <= maxBlockZ && !stuck; bz++) {
+                for (int by = minBlockY; by <= maxBlockY && !stuck; by++) {
+                    if (world.hasBlock(bx, by, bz)) {
+                        stuck = true;
+                    }
+                }
+            }
+        }
+        
+        if (stuck) {
+            // try to push player out (prioritize upward movement)
+            float[] offsets = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f, 3.0f};
+            
+            for (float yOffset : offsets) {
+                float testY = y + yOffset;
+                if (testY >= 0 && !isColliding(x, testY, z, world)) {
+                    y = testY;
+                    return;
+                }
+            }
+            
+            for (float xOffset : offsets) {
+                for (float zOffset : offsets) {
+                    if (xOffset == 0 && zOffset == 0) continue;
+                    
+                    float testX = x + xOffset;
+                    float testZ = z + zOffset;
+                    if (!isColliding(testX, y, testZ, world)) {
+                        x = testX;
+                        z = testZ;
+                        return;
+                    }
+                }
+            }
+            
+            float groundHeight = world.groundHeight(x, z);
+            y = groundHeight + 0.1f;
+            vy = 0;
+        }
+    }
+    
+    private boolean isColliding(float testX, float testY, float testZ, World world) {
+        final float PLAYER_WIDTH = 0.6f;
+        final float PLAYER_HEIGHT = 2.0f;
+        
+        float minX = testX - PLAYER_WIDTH/2;
+        float maxX = testX + PLAYER_WIDTH/2;
+        float minZ = testZ - PLAYER_WIDTH/2;
+        float maxZ = testZ + PLAYER_WIDTH/2;
+        float minY = testY - PLAYER_HEIGHT;
+        float maxY = testY;
+        
+        int minBlockX = (int) Math.floor(minX + World.SIZE / 2f);
+        int maxBlockX = (int) Math.floor(maxX + World.SIZE / 2f);
+        int minBlockZ = (int) Math.floor(-maxZ);
+        int maxBlockZ = (int) Math.floor(-minZ);
+        int minBlockY = (int) Math.floor(minY);
+        int maxBlockY = (int) Math.floor(maxY);
+        
+        for (int bx = minBlockX; bx <= maxBlockX; bx++) {
+            for (int bz = minBlockZ; bz <= maxBlockZ; bz++) {
+                for (int by = minBlockY; by <= maxBlockY; by++) {
+                    if (world.hasBlock(bx, by, bz)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 
     // camera
     public void addYaw(float d){yaw+=d;}

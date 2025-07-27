@@ -17,7 +17,6 @@ public class TextureGenerator {
     
     public static void generateTextures() {
         try {
-            // Create textures directory if it doesn't exist
             File texturesDir = new File("src/main/resources/textures");
             texturesDir.mkdirs();
             
@@ -26,6 +25,8 @@ public class TextureGenerator {
             generateDirtTexture();
             
             generateGrassSideTexture();
+            
+            generateCobblestoneTexture();
             
             System.out.println("Generated block textures successfully!");
         } catch (IOException e) {
@@ -112,6 +113,60 @@ public class TextureGenerator {
         
         g.dispose();
         ImageIO.write(image, "PNG", new File("src/main/resources/textures/grass_side.png"));
+    }
+    
+    private static void generateCobblestoneTexture() throws IOException {
+        BufferedImage image = new BufferedImage(TEXTURE_SIZE, TEXTURE_SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = image.createGraphics();
+        
+        g.setColor(new Color(127, 127, 127));
+        g.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+        
+        for (int x = 0; x < TEXTURE_SIZE; x++) {
+            for (int y = 0; y < TEXTURE_SIZE; y++) {
+                double noise = Math.random();
+                
+                if (noise < 0.3) {
+                    g.setColor(new Color(100, 100, 100));
+                    g.fillRect(x, y, 1, 1);
+                } else if (noise < 0.6) {
+                    g.setColor(new Color(150, 150, 150));
+                    g.fillRect(x, y, 1, 1);
+                } else if (noise < 0.8) {
+                    g.setColor(new Color(127, 127, 127));
+                    g.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+        
+        g.setColor(new Color(70, 70, 70));
+        
+        for (int y = 3; y < TEXTURE_SIZE; y += 4) {
+            for (int x = 0; x < TEXTURE_SIZE; x++) {
+                if (Math.random() < 0.8) {
+                    g.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+        
+        for (int x = 2; x < TEXTURE_SIZE; x += 5) {
+            for (int y = 0; y < TEXTURE_SIZE; y++) {
+                int offsetX = x + ((y / 4) % 2) * 2;
+                if (offsetX < TEXTURE_SIZE && Math.random() < 0.7) {
+                    g.fillRect(offsetX, y, 1, 1);
+                }
+            }
+        }
+        
+        for (int i = 0; i < 20; i++) {
+            int x = (int)(Math.random() * TEXTURE_SIZE);
+            int y = (int)(Math.random() * TEXTURE_SIZE);
+            g.setColor(new Color(60, 60, 60));
+            g.fillRect(x, y, 1, 1);
+        }
+        
+        g.dispose();
+        ImageIO.write(image, "PNG", new File("src/main/resources/textures/cobblestone.png"));
     }
     
     public static void main(String[] args) {
