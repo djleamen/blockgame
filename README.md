@@ -7,7 +7,7 @@
 ![OpenGL](https://img.shields.io/badge/Rendering-OpenGL-orange)
 ![Inspired By](https://img.shields.io/badge/inspired%20by-Minecraft-lightgrey?logo=minecraft)
 
-<img width="663" height="500" alt="Screenshot 2025-07-27 at 7 53 53 PM" src="https://github.com/user-attachments/assets/b195945d-c0d2-40f6-a871-a9f2e1f662fc" />
+<img width="410" height="229" alt="Screenshot 2025-07-27 at 7 55 29 PM" src="https://github.com/user-attachments/assets/507a6046-4e9f-42b3-b4d2-2f500a159f84" />
 
 *hey... I never claimed to be a good builder*
 
