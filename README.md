@@ -7,6 +7,10 @@
 ![OpenGL](https://img.shields.io/badge/Rendering-OpenGL-orange)
 ![Inspired By](https://img.shields.io/badge/inspired%20by-Minecraft-lightgrey?logo=minecraft)
 
+<img width="663" height="500" alt="Screenshot 2025-07-27 at 7 53 53 PM" src="https://github.com/user-attachments/assets/b195945d-c0d2-40f6-a871-a9f2e1f662fc" />
+
+*hey... I never claimed to be a good builder*
+
 ## Overview
 This project is a super basic 3D block game with heavy inspiration taken from early alpha versions of Minecraft, implemented in Java. It includes fundamental functionalities such as player movement, block breaking/placing, world generation, and a complete block-based building system.
 
