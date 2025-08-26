@@ -40,12 +40,19 @@
                     GL11.glPushMatrix();
                     GL11.glTranslatef(x - SIZE / 2f, y, -z);
                     
-                    if (blocks[x][y][z] == BLOCK_TYPE_GRASS) {
-                        block.renderAsGrass();
-                    } else if (blocks[x][y][z] == BLOCK_TYPE_DIRT || blocks[x][y][z] == BLOCK_TYPE_PLACED_DIRT) {
-                        block.renderAsDirt();
-                    } else if (blocks[x][y][z] == BLOCK_TYPE_COBBLESTONE) {
-                        block.renderAsCobblestone();
+                    switch (blocks[x][y][z]) {
+                        case BLOCK_TYPE_GRASS:
+                            block.renderAsGrass();
+                            break;
+                        case BLOCK_TYPE_DIRT:
+                        case BLOCK_TYPE_PLACED_DIRT:
+                            block.renderAsDirt();
+                            break;
+                        case BLOCK_TYPE_COBBLESTONE:
+                            block.renderAsCobblestone();
+                            break;
+                        default:
+                            break;
                     }
                     
                     GL11.glPopMatrix();

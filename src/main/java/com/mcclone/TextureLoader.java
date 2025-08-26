@@ -5,9 +5,6 @@
 
 package com.mcclone;
 
-import org.lwjgl.BufferUtils;
-import org.lwjgl.system.MemoryStack;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -17,12 +14,37 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.stb.STBImage.*;
+import org.lwjgl.BufferUtils;
+import static org.lwjgl.opengl.GL11.GL_NEAREST;
+import static org.lwjgl.opengl.GL11.GL_REPEAT;
+import static org.lwjgl.opengl.GL11.GL_RGBA;
+import static org.lwjgl.opengl.GL11.GL_RGBA8;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_WRAP_S;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_WRAP_T;
+import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
+import static org.lwjgl.opengl.GL11.glBindTexture;
+import static org.lwjgl.opengl.GL11.glDeleteTextures;
+import static org.lwjgl.opengl.GL11.glDisable;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glGenTextures;
+import static org.lwjgl.opengl.GL11.glTexImage2D;
+import static org.lwjgl.opengl.GL11.glTexParameteri;
+import static org.lwjgl.stb.STBImage.stbi_failure_reason;
+import static org.lwjgl.stb.STBImage.stbi_image_free;
+import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
+import org.lwjgl.system.MemoryStack;
 
 public class TextureLoader {
     
     private static final Map<String, Integer> textureCache = new HashMap<>();
+    
+    private TextureLoader() {
+        // Private constructor to hide implicit public one
+        throw new UnsupportedOperationException("Utility class");
+    }
     
     public static int loadTexture(String resourcePath) {
         // Check if texture is already loaded
@@ -34,7 +56,7 @@ public class TextureLoader {
         try {
             imageBuffer = ioResourceToByteBuffer(resourcePath, 8 * 1024);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load texture: " + resourcePath, e);
+            throw new TextureLoadException("Failed to load texture: " + resourcePath, e);
         }
         
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -44,7 +66,7 @@ public class TextureLoader {
             
             ByteBuffer image = stbi_load_from_memory(imageBuffer, w, h, channels, 4);
             if (image == null) {
-                throw new RuntimeException("Failed to load texture: " + resourcePath + " - " + stbi_failure_reason());
+                throw new TextureLoadException("Failed to load texture: " + resourcePath + " - " + stbi_failure_reason());
             }
             
             int width = w.get(0);

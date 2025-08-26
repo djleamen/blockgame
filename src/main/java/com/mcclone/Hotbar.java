@@ -11,7 +11,7 @@ public class Hotbar {
     
     private static final int HOTBAR_SLOTS = 9;
     private int selectedSlot = 0;
-    private int[] items = new int[HOTBAR_SLOTS];
+    private final int[] items = new int[HOTBAR_SLOTS];
     
     public Hotbar() {
         // initialize hotbar with some blocks
@@ -74,10 +74,10 @@ public class Hotbar {
         
         GL11.glColor3f(0.2f, 0.2f, 0.2f);
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex2f(hotbarX - 4, hotbarY - 4);
-        GL11.glVertex2f(hotbarX + hotbarWidth + 4, hotbarY - 4);
-        GL11.glVertex2f(hotbarX + hotbarWidth + 4, hotbarY + slotSize + 4);
-        GL11.glVertex2f(hotbarX - 4, hotbarY + slotSize + 4);
+        GL11.glVertex2f((float)hotbarX - 4, (float)hotbarY - 4);
+        GL11.glVertex2f(hotbarX + (float)hotbarWidth + 4, (float)hotbarY - 4);
+        GL11.glVertex2f(hotbarX + (float)hotbarWidth + 4, hotbarY + (float)slotSize + 4);
+        GL11.glVertex2f((float)hotbarX - 4, hotbarY + (float)slotSize + 4);
         GL11.glEnd();
         
         for (int i = 0; i < HOTBAR_SLOTS; i++) {
@@ -91,17 +91,17 @@ public class Hotbar {
             
             GL11.glBegin(GL11.GL_QUADS);
             GL11.glVertex2f(slotX, hotbarY);
-            GL11.glVertex2f(slotX + slotSize, hotbarY);
-            GL11.glVertex2f(slotX + slotSize, hotbarY + slotSize);
-            GL11.glVertex2f(slotX, hotbarY + slotSize);
+            GL11.glVertex2f((float)slotX + slotSize, hotbarY);
+            GL11.glVertex2f((float)slotX + slotSize, (float)hotbarY + slotSize);
+            GL11.glVertex2f(slotX, (float)hotbarY + slotSize);
             GL11.glEnd();
             
             GL11.glColor3f(0.1f, 0.1f, 0.1f);
             GL11.glBegin(GL11.GL_LINE_LOOP);
             GL11.glVertex2f(slotX, hotbarY);
-            GL11.glVertex2f(slotX + slotSize, hotbarY);
-            GL11.glVertex2f(slotX + slotSize, hotbarY + slotSize);
-            GL11.glVertex2f(slotX, hotbarY + slotSize);
+            GL11.glVertex2f((float)slotX + slotSize, hotbarY);
+            GL11.glVertex2f((float)slotX + slotSize, (float)hotbarY + slotSize);
+            GL11.glVertex2f(slotX, (float)hotbarY + slotSize);
             GL11.glEnd();
             
             if (items[i] != World.BLOCK_TYPE_AIR) {
@@ -127,9 +127,9 @@ public class Hotbar {
             
                 GL11.glBegin(GL11.GL_QUADS);
                 GL11.glVertex2f(itemX, itemY);
-                GL11.glVertex2f(itemX + itemSize, itemY);
-                GL11.glVertex2f(itemX + itemSize, itemY + itemSize);
-                GL11.glVertex2f(itemX, itemY + itemSize);
+                GL11.glVertex2f((float)itemX + itemSize, itemY);
+                GL11.glVertex2f((float)itemX + itemSize, (float)itemY + itemSize);
+                GL11.glVertex2f(itemX, (float)itemY + itemSize);
                 GL11.glEnd();
             }
         }
