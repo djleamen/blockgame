@@ -41,18 +41,12 @@
                     GL11.glTranslatef(x - SIZE / 2f, y, -z);
                     
                     switch (blocks[x][y][z]) {
-                        case BLOCK_TYPE_GRASS:
-                            block.renderAsGrass();
-                            break;
-                        case BLOCK_TYPE_DIRT:
-                        case BLOCK_TYPE_PLACED_DIRT:
-                            block.renderAsDirt();
-                            break;
-                        case BLOCK_TYPE_COBBLESTONE:
-                            block.renderAsCobblestone();
-                            break;
-                        default:
-                            break;
+                        case BLOCK_TYPE_GRASS -> block.renderAsGrass();
+                        case BLOCK_TYPE_DIRT, BLOCK_TYPE_PLACED_DIRT -> block.renderAsDirt();
+                        case BLOCK_TYPE_COBBLESTONE -> block.renderAsCobblestone();
+                        default -> {
+                            // No action for unknown block types
+                        }
                     }
                     
                     GL11.glPopMatrix();

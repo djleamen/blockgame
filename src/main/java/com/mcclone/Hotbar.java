@@ -110,19 +110,10 @@ public class Hotbar {
                 int itemY = hotbarY + (slotSize - itemSize) / 2;
                 
                 switch (items[i]) {
-                    case World.BLOCK_TYPE_GRASS:
-                        GL11.glColor3f(0.4f, 0.8f, 0.2f);
-                        break;
-                    case World.BLOCK_TYPE_DIRT:
-                    case World.BLOCK_TYPE_PLACED_DIRT:
-                        GL11.glColor3f(0.6f, 0.4f, 0.2f);
-                        break;
-                    case World.BLOCK_TYPE_COBBLESTONE:
-                        GL11.glColor3f(0.4f, 0.4f, 0.4f);
-                        break;
-                    default:
-                        GL11.glColor3f(1.0f, 1.0f, 1.0f);
-                        break;
+                    case World.BLOCK_TYPE_GRASS -> GL11.glColor3f(0.4f, 0.8f, 0.2f);
+                    case World.BLOCK_TYPE_DIRT, World.BLOCK_TYPE_PLACED_DIRT -> GL11.glColor3f(0.6f, 0.4f, 0.2f);
+                    case World.BLOCK_TYPE_COBBLESTONE -> GL11.glColor3f(0.4f, 0.4f, 0.4f);
+                    default -> GL11.glColor3f(1.0f, 1.0f, 1.0f);
                 }
             
                 GL11.glBegin(GL11.GL_QUADS);

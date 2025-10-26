@@ -7,9 +7,12 @@
 package com.mcclone;
 
 import org.lwjgl.opengl.GL11;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Player {
 
+    private static final Logger logger = LoggerFactory.getLogger(Player.class);
     private static final float GRAVITY = 0.008f;
     private static final float EYE = 1.62f;
 
@@ -100,9 +103,9 @@ public class Player {
             float blockMinY = by;
             float blockMaxY = by + 1.0f;
             if (maxY > blockMinY && minY < blockMaxY) {
-                // debug output
-                System.out.printf("REAL COLLISION: Block at (%d,%d,%d), Player Y:%.3f, Feet:%.3f, Head:%.3f, BlockY:%.1f-%.1f%n",
-                        bx, by, bz, y, minY, maxY, blockMinY, blockMaxY);
+                logger.debug("REAL COLLISION: Block at ({},{},{}), Player Y:{}, Feet:{}, Head:{}, BlockY:{}-{}",
+                        bx, by, bz, String.format("%.3f", y), String.format("%.3f", minY), 
+                        String.format("%.3f", maxY), String.format("%.1f", blockMinY), String.format("%.1f", blockMaxY));
                 return true;
             }
         }
@@ -187,7 +190,7 @@ public class Player {
 
     // camera
     public void addYaw(float d){yaw+=d;}
-    public void addPitch(float d){pitch=Math.max(-89,Math.min(89,pitch+d));}
+    public void addPitch(float d){pitch=Math.clamp(pitch+d,-89,89);}
     public float getYaw(){return yaw;}
     public float getPitch(){return pitch;}
 
