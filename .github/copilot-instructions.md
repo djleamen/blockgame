@@ -6,7 +6,7 @@ Blockgame is a basic 3D block game implementation in Java, heavily inspired by e
 
 ## Technology Stack
 
-- **Language**: Java 8+ (configured for Java 21)
+- **Language**: Java (minimum JDK 8, pom.xml configured for Java 21)
 - **Build Tool**: Maven
 - **Graphics**: OpenGL via LWJGL 3.3.2
 - **Window Management**: GLFW (via LWJGL)
@@ -108,7 +108,7 @@ java -XstartOnFirstThread -jar target/mc-clone-1.0-SNAPSHOT-shaded.jar
 
 4. **World Management**:
    - Fixed world size (64x64 blocks)
-   - 3-layer depth (grass surface, cobblestone foundation)
+   - 3-layer total structure (1 grass surface layer + 2 cobblestone foundation layers)
    - Grass-to-dirt conversion logic when blocks are placed above
 
 ## Testing
@@ -160,7 +160,7 @@ java -XstartOnFirstThread -jar target/mc-clone-1.0-SNAPSHOT-shaded.jar
 
 ## Performance Considerations
 
-1. **Rendering**: Immediate mode OpenGL is used (not optimal for modern hardware)
+1. **Rendering**: Immediate mode OpenGL is used with deprecated features (GL_QUADS). This is not optimal for modern hardware and is not available in modern OpenGL core profiles. Future optimization could involve migrating to vertex buffer objects (VBOs) and modern OpenGL.
 2. **World Size**: Fixed 64x64 size keeps memory usage low
 3. **Texture Generation**: Done at startup, cached in OpenGL texture memory
 4. **Frame Rate**: VSync enabled (60 FPS cap)
