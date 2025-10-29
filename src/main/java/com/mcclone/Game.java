@@ -81,7 +81,9 @@ public class Game {
     private static final float MOUSE_SENSITIVITY = 0.08f;
 
     public Game() {
-        if (!glfwInit()) throw new IllegalStateException("GLFW init failed");
+        if (!glfwInit()) {
+            throw new IllegalStateException("GLFW init failed");
+        }
 
         window = glfwCreateWindow(800, 600, "Blockgame 3D", NULL, NULL);
         glfwMakeContextCurrent(window);
@@ -211,15 +213,25 @@ public class Game {
         final float speed = 5 * dt;
 
         float yaw = player.getYaw();
-        if (key(GLFW_KEY_W)) player.move((float) Math.sin(Math.toRadians(yaw)) * speed,
+        if (key(GLFW_KEY_W)) {
+            player.move((float) Math.sin(Math.toRadians(yaw)) * speed,
                                          (float)-Math.cos(Math.toRadians(yaw)) * speed, world);
-        if (key(GLFW_KEY_S)) player.move((float)-Math.sin(Math.toRadians(yaw)) * speed,
+        }
+        if (key(GLFW_KEY_S)) {
+            player.move((float)-Math.sin(Math.toRadians(yaw)) * speed,
                                          (float) Math.cos(Math.toRadians(yaw)) * speed, world);
-        if (key(GLFW_KEY_A)) player.move((float)-Math.cos(Math.toRadians(yaw)) * speed,
+        }
+        if (key(GLFW_KEY_A)) {
+            player.move((float)-Math.cos(Math.toRadians(yaw)) * speed,
                                          (float)-Math.sin(Math.toRadians(yaw)) * speed, world);
-        if (key(GLFW_KEY_D)) player.move((float) Math.cos(Math.toRadians(yaw)) * speed,
+        }
+        if (key(GLFW_KEY_D)) {
+            player.move((float) Math.cos(Math.toRadians(yaw)) * speed,
                                          (float) Math.sin(Math.toRadians(yaw)) * speed, world);
-        if (key(GLFW_KEY_SPACE)) player.jump(0.18f);
+        }
+        if (key(GLFW_KEY_SPACE)) {
+            player.jump(0.18f);
+        }
 
         handleHotbarSelection();
 
@@ -249,20 +261,40 @@ public class Game {
         // reset cursor to center
         glfwSetCursorPos(window, centerX, centerY);
 
-        if (key(GLFW_KEY_ESCAPE)) glfwSetWindowShouldClose(window, true);
+        if (key(GLFW_KEY_ESCAPE)) {
+            glfwSetWindowShouldClose(window, true);
+        }
     }
 
     // handle hotbar selection with number keys (1-9)
     private void handleHotbarSelection() {
-        if (key(GLFW_KEY_1)) hotbar.selectSlot(0);
-        if (key(GLFW_KEY_2)) hotbar.selectSlot(1);
-        if (key(GLFW_KEY_3)) hotbar.selectSlot(2);
-        if (key(GLFW_KEY_4)) hotbar.selectSlot(3);
-        if (key(GLFW_KEY_5)) hotbar.selectSlot(4);
-        if (key(GLFW_KEY_6)) hotbar.selectSlot(5);
-        if (key(GLFW_KEY_7)) hotbar.selectSlot(6);
-        if (key(GLFW_KEY_8)) hotbar.selectSlot(7);
-        if (key(GLFW_KEY_9)) hotbar.selectSlot(8);
+        if (key(GLFW_KEY_1)) {
+            hotbar.selectSlot(0);
+        }
+        if (key(GLFW_KEY_2)) {
+            hotbar.selectSlot(1);
+        }
+        if (key(GLFW_KEY_3)) {
+            hotbar.selectSlot(2);
+        }
+        if (key(GLFW_KEY_4)) {
+            hotbar.selectSlot(3);
+        }
+        if (key(GLFW_KEY_5)) {
+            hotbar.selectSlot(4);
+        }
+        if (key(GLFW_KEY_6)) {
+            hotbar.selectSlot(5);
+        }
+        if (key(GLFW_KEY_7)) {
+            hotbar.selectSlot(6);
+        }
+        if (key(GLFW_KEY_8)) {
+            hotbar.selectSlot(7);
+        }
+        if (key(GLFW_KEY_9)) {
+            hotbar.selectSlot(8);
+        }
     }
 
     private boolean key(int k) { return glfwGetKey(window, k) == GLFW_PRESS; }
@@ -274,8 +306,10 @@ public class Game {
         
         int[] lastAirPos = {-1, -1, -1};
         
-        for (float t = 0; t <= rayData.reach; t += 0.05f) {
-            int[] blockPos = getBlockPosition(rayData, t);
+        // Use double for loop index to avoid PMD warning about float loop indices
+        double stepSize = 0.05;
+        for (double t = 0; t <= rayData.reach; t += stepSize) {
+            int[] blockPos = getBlockPosition(rayData, (float) t);
             
             if (!world.hasBlock(blockPos[0], blockPos[1], blockPos[2])) {
                 updateLastAirPosition(lastAirPos, blockPos);

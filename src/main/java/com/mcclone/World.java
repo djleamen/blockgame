@@ -35,7 +35,9 @@
         for (int x = 0; x < SIZE; x++) {
             for (int y = 0; y < SIZE; y++) {
                 for (int z = 0; z < SIZE; z++) {
-                    if (blocks[x][y][z] == BLOCK_TYPE_AIR) continue;
+                    if (blocks[x][y][z] == BLOCK_TYPE_AIR) {
+                        continue;
+                    }
     
                     GL11.glPushMatrix();
                     GL11.glTranslatef(x - SIZE / 2f, y, -z);
@@ -60,7 +62,9 @@
         int bz = (int) Math.floor(-z);
     
         for (int y = SIZE-1; y >= 0; y--) {
-            if (hasBlock(bx, y, bz)) return y + 1f;
+            if (hasBlock(bx, y, bz)) {
+                return y + 1f;
+            }
         }
         return 0f;
     }

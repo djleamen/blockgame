@@ -37,12 +37,11 @@ import static org.lwjgl.stb.STBImage.stbi_image_free;
 import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 import org.lwjgl.system.MemoryStack;
 
-public class TextureLoader {
+public final class TextureLoader {
     
     private static final Map<String, Integer> textureCache = new HashMap<>();
     
     private TextureLoader() {
-        // Private constructor to hide implicit public one
         throw new UnsupportedOperationException("Utility class");
     }
     

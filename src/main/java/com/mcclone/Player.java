@@ -60,31 +60,28 @@ public class Player {
     }
     
     private boolean canMoveTo(float newX, float newZ, World world) {
-        if (collidesAt(newX, y, newZ, world)) {
-            return false;
-        }
-        return canClimbTo(newX, newZ, world);
+        return !collidesAt(newX, y, newZ, world) && canClimbTo(newX, newZ, world);
     }
 
     private boolean collidesAt(float testX, float testY, float testZ, World world) {
-        final float PLAYER_WIDTH = 0.6f;
-        final float PLAYER_HEIGHT = 2.0f;
-        final float COLLISION_BUFFER = 0.1f;
-        final float EPSILON = 0.001f;
+        final float playerWidth = 0.6f;
+        final float playerHeight = 2.0f;
+        final float collisionBuffer = 0.1f;
+        final float epsilon = 0.001f;
 
-        float minX = testX - PLAYER_WIDTH/2 - COLLISION_BUFFER;
-        float maxX = testX + PLAYER_WIDTH/2 + COLLISION_BUFFER;
-        float minZ = testZ - PLAYER_WIDTH/2 - COLLISION_BUFFER;
-        float maxZ = testZ + PLAYER_WIDTH/2 + COLLISION_BUFFER;
+        float minX = testX - playerWidth/2 - collisionBuffer;
+        float maxX = testX + playerWidth/2 + collisionBuffer;
+        float minZ = testZ - playerWidth/2 - collisionBuffer;
+        float maxZ = testZ + playerWidth/2 + collisionBuffer;
         float minY = testY - EYE;
-        float maxY = testY + (PLAYER_HEIGHT - EYE);
+        float maxY = testY + (playerHeight - EYE);
 
         int minBlockX = (int) Math.floor(minX + World.SIZE / 2f);
         int maxBlockX = (int) Math.floor(maxX + World.SIZE / 2f);
         int minBlockZ = (int) Math.floor(-maxZ);
         int maxBlockZ = (int) Math.floor(-minZ);
-        int minBlockY = (int) Math.floor(minY + EPSILON);
-        int maxBlockY = (int) Math.floor(maxY - EPSILON);
+        int minBlockY = (int) Math.floor(minY + epsilon);
+        int maxBlockY = (int) Math.floor(maxY - epsilon);
 
         for (int bx = minBlockX; bx <= maxBlockX; bx++) {
             for (int bz = minBlockZ; bz <= maxBlockZ; bz++) {
@@ -121,7 +118,11 @@ public class Player {
         return !(heightDiff > 1.0f && vy <= 0);
     }
     
-    public void jump(float v){if(onGround())vy=v;}
+    public void jump(float v) {
+        if (onGround()) {
+            vy = v;
+        }
+    }
 
     public void checkAndFixStuckInBlock(World world) {
         if (isPlayerStuckInBlock(world)) {
@@ -166,7 +167,9 @@ public class Player {
         float[] offsets = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f, 3.0f};
         for (float xOffset : offsets) {
             for (float zOffset : offsets) {
-                if (xOffset == 0 && zOffset == 0) continue;
+                if (xOffset == 0 && zOffset == 0) {
+                    continue;
+                }
                 if (canMoveToXZ(xOffset, zOffset, world)) {
                     x += xOffset;
                     z += zOffset;

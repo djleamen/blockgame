@@ -22,6 +22,10 @@ public class TextureGenerator {
     private static final int TEXTURE_SIZE = 16;
     private static final Random RANDOM = new Random();
     
+    private TextureGenerator() {
+        throw new UnsupportedOperationException("Utility class");
+    }
+    
     public static void generateTextures() {
         try {
             File texturesDir = new File("src/main/resources/textures");
@@ -35,7 +39,9 @@ public class TextureGenerator {
             
             generateCobblestoneTexture();
             
-            logger.info("Generated block textures successfully!");
+            if (logger.isLoggable(java.util.logging.Level.INFO)) {
+                logger.info("Generated block textures successfully!");
+            }
         } catch (IOException e) {
             logger.severe(String.format("Failed to generate textures: %s", e.getMessage()));
         }
@@ -177,7 +183,7 @@ public class TextureGenerator {
         
         for (int x = 2; x < TEXTURE_SIZE; x += 5) {
             for (int y = 0; y < TEXTURE_SIZE; y++) {
-                int offsetX = x + ((y / 4) % 2) * 2;
+                int offsetX = x + (y / 4 % 2) * 2;
                 if (offsetX < TEXTURE_SIZE && RANDOM.nextDouble() < 0.7) {
                     g.fillRect(offsetX, y, 1, 1);
                 }
