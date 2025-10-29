@@ -103,9 +103,11 @@ public class Player {
             float blockMinY = by;
             float blockMaxY = by + 1.0f;
             if (maxY > blockMinY && minY < blockMaxY) {
-                logger.debug("REAL COLLISION: Block at ({},{},{}), Player Y:{}, Feet:{}, Head:{}, BlockY:{}-{}",
-                        bx, by, bz, String.format("%.3f", y), String.format("%.3f", minY), 
-                        String.format("%.3f", maxY), String.format("%.1f", blockMinY), String.format("%.1f", blockMaxY));
+                if (logger.isDebugEnabled()) {
+                    logger.debug("REAL COLLISION: Block at ({},{},{}), Player Y:{}, Feet:{}, Head:{}, BlockY:{}-{}",
+                            bx, by, bz, String.format("%.3f", y), String.format("%.3f", minY), 
+                            String.format("%.3f", maxY), String.format("%.1f", blockMinY), String.format("%.1f", blockMaxY));
+                }
                 return true;
             }
         }
