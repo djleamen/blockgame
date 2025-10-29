@@ -329,7 +329,7 @@ public class Game {
         float oz = player.getZ();
 
         float dx = (float) (Math.sin(yaw) * Math.cos(pitch));
-        float dy = (float) (Math.sin(pitch));
+        float dy = (float) Math.sin(pitch);
         float dz = (float) (-Math.cos(yaw) * Math.cos(pitch));
         
         return new RaycastData(ox, oy, oz, dx, dy, dz, 5.0f);

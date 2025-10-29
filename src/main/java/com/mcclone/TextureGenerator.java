@@ -15,7 +15,7 @@ import java.util.logging.Logger;
 
 import javax.imageio.ImageIO;
 
-public class TextureGenerator {
+public final class TextureGenerator {
 
     private static final Logger logger = Logger.getLogger(TextureGenerator.class.getName());
 
@@ -43,7 +43,9 @@ public class TextureGenerator {
                 logger.info("Generated block textures successfully!");
             }
         } catch (IOException e) {
-            logger.severe(String.format("Failed to generate textures: %s", e.getMessage()));
+            if (logger.isLoggable(java.util.logging.Level.SEVERE)) {
+                logger.severe(String.format("Failed to generate textures: %s", e.getMessage()));
+            }
         }
     }
     
@@ -183,7 +185,7 @@ public class TextureGenerator {
         
         for (int x = 2; x < TEXTURE_SIZE; x += 5) {
             for (int y = 0; y < TEXTURE_SIZE; y++) {
-                int offsetX = x + (y / 4 % 2) * 2;
+                int offsetX = x + y / 4 % 2 * 2;
                 if (offsetX < TEXTURE_SIZE && RANDOM.nextDouble() < 0.7) {
                     g.fillRect(offsetX, y, 1, 1);
                 }
