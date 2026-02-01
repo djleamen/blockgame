@@ -1,4 +1,4 @@
-/*
+/**
  * This file represents the main game loop.
  * It handles the game window, input, and rendering.
  * It uses GLFW for window management and OpenGL for rendering.
@@ -6,80 +6,50 @@
 
 package com.mcclone;
 
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR;
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_DISABLED;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_1;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_2;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_3;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_4;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_5;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_6;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_7;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_8;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_9;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_S;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
-import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
-import static org.lwjgl.glfw.GLFW.glfwGetCursorPos;
-import static org.lwjgl.glfw.GLFW.glfwGetFramebufferSize;
-import static org.lwjgl.glfw.GLFW.glfwGetKey;
-import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
-import static org.lwjgl.glfw.GLFW.glfwGetTime;
-import static org.lwjgl.glfw.GLFW.glfwInit;
-import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
-import static org.lwjgl.glfw.GLFW.glfwPollEvents;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPos;
-import static org.lwjgl.glfw.GLFW.glfwSetFramebufferSizeCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetInputMode;
-import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
-import static org.lwjgl.glfw.GLFW.glfwShowWindow;
-import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
-import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
-import static org.lwjgl.glfw.GLFW.glfwTerminate;
-import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
-import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
-import static org.lwjgl.opengl.GL11.GL_MODELVIEW;
-import static org.lwjgl.opengl.GL11.GL_PROJECTION;
-import static org.lwjgl.opengl.GL11.GL_QUADS;
-import static org.lwjgl.opengl.GL11.glBegin;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glColor3f;
-import static org.lwjgl.opengl.GL11.glDisable;
-import static org.lwjgl.opengl.GL11.glEnable;
-import static org.lwjgl.opengl.GL11.glEnd;
-import static org.lwjgl.opengl.GL11.glLoadIdentity;
-import static org.lwjgl.opengl.GL11.glMatrixMode;
-import static org.lwjgl.opengl.GL11.glOrtho;
-import static org.lwjgl.opengl.GL11.glPopMatrix;
-import static org.lwjgl.opengl.GL11.glPushMatrix;
-import static org.lwjgl.opengl.GL11.glVertex2f;
-import static org.lwjgl.opengl.GL11.glViewport;
-import static org.lwjgl.system.MemoryUtil.NULL;
+import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.system.MemoryUtil.*;
+import org.lwjgl.opengl.GL;
 
+/**
+ * Main game class that manages the game loop, window, rendering, and input handling.
+ * This class uses GLFW for window management and OpenGL for 3D rendering.
+ * It coordinates interactions between the player, world, and UI components.
+ */
 public class Game {
 
+    /** GLFW window handle */
     private long window;
+    
+    /** The game world containing all blocks */
     private final World  world  = new World();
+    
+    /** The player entity with position and camera */
     private final Player player = new Player(0f, 3f + 1.62f, -2f);
+    
+    /** The hotbar UI for block selection */
     private final Hotbar hotbar = new Hotbar();
+    
+    /** Timestamp of the last block break action */
     private double lastBreakTime = 0;
+    
+    /** Timestamp of the last block place action */
     private double lastPlaceTime = 0;
+    
+    /** Cooldown period in seconds between block interactions */
     private static final double COOLDOWN = 0.2;
+    
+    /** Mouse sensitivity multiplier for camera rotation */
     private static final float MOUSE_SENSITIVITY = 0.08f;
 
+    /**
+     * Constructs a new Game instance and initializes GLFW, OpenGL, and game systems.
+     * Creates an 800x600 window, sets up perspective projection, enables depth testing,
+     * captures the mouse cursor, and loads textures.
+     * 
+     * @throws IllegalStateException if GLFW initialization fails
+     */
     public Game() {
         if (!glfwInit()) {
             throw new IllegalStateException("GLFW init failed");
@@ -111,7 +81,13 @@ public class Game {
         TextureLoader.enableTextures();
     }
 
-    // set the perspective projection matrix 
+    /**
+     * Sets up the perspective projection matrix based on window dimensions.
+     * Configures a 70-degree field of view with near and far clipping planes.
+     * 
+     * @param w the window width in pixels
+     * @param h the window height in pixels
+     */
     private void setPerspective(int w, int h) {
         float aspect = (float) w / h;
         glMatrixMode(GL_PROJECTION);
@@ -120,13 +96,26 @@ public class Game {
         glMatrixMode(GL_MODELVIEW);
     }
 
+    /**
+     * Applies a perspective projection using glFrustum.
+     * This is a helper method to create a perspective projection matrix.
+     * 
+     * @param fovY the field of view angle in degrees along the Y axis
+     * @param aspect the aspect ratio (width/height)
+     * @param zNear the distance to the near clipping plane (must be positive)
+     * @param zFar the distance to the far clipping plane (must be positive)
+     */
     private static void perspective(float fovY, float aspect, float zNear, float zFar) {
         double fH = Math.tan(Math.toRadians(fovY * 0.5)) * zNear;
         double fW = fH * aspect;
         GL11.glFrustum(-fW, fW, -fH, fH, zNear, zFar);
     }
 
-    // render crosshair in the center of the screen
+    /**
+     * Renders a white crosshair in the center of the screen.
+     * Temporarily switches to orthographic projection, disables depth testing,
+     * draws the crosshair as two perpendicular rectangles, then restores the previous state.
+     */
     private void renderCrosshair() {
         glMatrixMode(GL_PROJECTION);
         glPushMatrix();
@@ -174,7 +163,12 @@ public class Game {
         glMatrixMode(GL_MODELVIEW);
     }
 
-    // main game loop
+    /**
+     * Executes the main game loop.
+     * Continuously processes input, updates physics, renders the world and UI,
+     * and swaps buffers until the window is closed. Calculates delta time
+     * for frame-rate independent movement.
+     */
     public void run() {
         double last = glfwGetTime();
 
@@ -208,7 +202,13 @@ public class Game {
         glfwTerminate();
     }
 
-    // handle input events (keyboard and mouse)
+    /**
+     * Processes keyboard and mouse input for player movement and interaction.
+     * Handles WASD movement, space for jumping, number keys for hotbar selection,
+     * mouse movement for camera rotation, and mouse clicks for block breaking/placing.
+     * 
+     * @param dt delta time in seconds since the last frame
+     */
     private void handleInput(float dt) {
         final float speed = 5 * dt;
 
@@ -266,7 +266,10 @@ public class Game {
         }
     }
 
-    // handle hotbar selection with number keys (1-9)
+    /**
+     * Handles hotbar slot selection using number keys 1-9.
+     * Each key corresponds to a hotbar slot index (1 = slot 0, 2 = slot 1, etc.).
+     */
     private void handleHotbarSelection() {
         if (key(GLFW_KEY_1)) {
             hotbar.selectSlot(0);
@@ -297,9 +300,20 @@ public class Game {
         }
     }
 
+    /**
+     * Checks if a specific key is currently pressed.
+     * 
+     * @param k the GLFW key code to check
+     * @return true if the key is pressed, false otherwise
+     */
     private boolean key(int k) { return glfwGetKey(window, k) == GLFW_PRESS; }
 
-    // raycast to find blocks for interaction (break/place)
+    /**
+     * Performs raycasting from the player's eye position to detect block interactions.
+     * Casts a ray in the direction the player is looking and checks for blocks within reach.
+     * If a block is found, handles breaking (left click) and placing (Enter key) actions.
+     * Uses a step size of 0.05 units along the ray for collision detection.
+     */
     private void raycastForBlockInteraction() {
         RaycastData rayData = calculateRaycastData();
         double now = glfwGetTime();
@@ -320,6 +334,12 @@ public class Game {
         }
     }
     
+    /**
+     * Calculates the ray origin and direction for raycasting based on player position and camera angles.
+     * The ray starts from the player's eye position and extends in the direction they're looking.
+     * 
+     * @return a RaycastData object containing ray origin, direction, and reach distance
+     */
     private RaycastData calculateRaycastData() {
         float yaw = (float) Math.toRadians(player.getYaw());
         float pitch = (float) Math.toRadians(player.getPitch());
@@ -333,7 +353,17 @@ public class Game {
         float dz = (float) (-Math.cos(yaw) * Math.cos(pitch));
         
         return new RaycastData(ox, oy, oz, dx, dy, dz, 5.0f);
-    }    private int[] getBlockPosition(RaycastData rayData, float t) {
+    }
+    
+    /**
+     * Calculates the block coordinates at a specific distance along the raycast.
+     * Converts world coordinates to block grid coordinates, accounting for world offset.
+     * 
+     * @param rayData the raycast data containing origin and direction
+     * @param t the distance along the ray from the origin
+     * @return an array containing [x, y, z] block coordinates
+     */
+    private int[] getBlockPosition(RaycastData rayData, float t) {
         float cx = rayData.ox + rayData.dx * t;
         float cy = rayData.oy + rayData.dy * t;
         float cz = rayData.oz + rayData.dz * t;
@@ -345,17 +375,38 @@ public class Game {
         return new int[]{bx, by, bz};
     }
     
+    /**
+     * Updates the last known air block position during raycasting.
+     * This is used to determine where to place blocks (in the last empty space before hitting a solid block).
+     * 
+     * @param lastAirPos the array to update with the last air position [x, y, z]
+     * @param blockPos the current block position being checked [x, y, z]
+     */
     private void updateLastAirPosition(int[] lastAirPos, int[] blockPos) {
         lastAirPos[0] = blockPos[0];
         lastAirPos[1] = blockPos[1];
         lastAirPos[2] = blockPos[2];
     }
     
+    /**
+     * Handles both block breaking and placing interactions at the raycast hit location.
+     * 
+     * @param blockPos the position of the solid block that was hit [x, y, z]
+     * @param lastAirPos the last air position before the solid block [x, y, z]
+     * @param now the current time in seconds for cooldown checks
+     */
     private void handleBlockInteraction(int[] blockPos, int[] lastAirPos, double now) {
         handleBlockBreaking(blockPos, now);
         handleBlockPlacing(lastAirPos, now);
     }
     
+    /**
+     * Handles block breaking when the left mouse button is pressed.
+     * Enforces a cooldown period between consecutive breaks to prevent spam.
+     * 
+     * @param blockPos the position of the block to break [x, y, z]
+     * @param now the current time in seconds
+     */
     private void handleBlockBreaking(int[] blockPos, double now) {
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && (now - lastBreakTime) >= COOLDOWN) {
             world.breakBlock(blockPos[0], blockPos[1], blockPos[2]);
@@ -363,6 +414,14 @@ public class Game {
         }
     }
     
+    /**
+     * Handles block placing when the Enter key is pressed.
+     * Places the currently selected hotbar item at the last air position before the solid block.
+     * Enforces a cooldown period and checks for valid placement conditions.
+     * 
+     * @param lastAirPos the position where the block should be placed [x, y, z]
+     * @param now the current time in seconds
+     */
     private void handleBlockPlacing(int[] lastAirPos, double now) {
         if (key(GLFW_KEY_ENTER) && (now - lastPlaceTime) >= COOLDOWN && lastAirPos[0] != -1 && hotbar.hasSelectedItem()) {
             world.placeBlockOfType(lastAirPos[0], lastAirPos[1], lastAirPos[2], hotbar.getSelectedItem());
@@ -370,15 +429,37 @@ public class Game {
         }
     }
     
+    /**
+     * Data container for raycast calculations.
+     * Stores the ray origin, direction vector, and maximum reach distance.
+     */
     private static class RaycastData {
+        /** Ray origin X coordinate in world space */
         final float ox;
+        /** Ray origin Y coordinate in world space */
         final float oy;
+        /** Ray origin Z coordinate in world space */
         final float oz;
+        /** Ray direction X component (normalized) */
         final float dx;
+        /** Ray direction Y component (normalized) */
         final float dy;
+        /** Ray direction Z component (normalized) */
         final float dz;
+        /** Maximum reach distance for raycasting */
         final float reach;
         
+        /**
+         * Constructs a new RaycastData with the specified origin, direction, and reach.
+         * 
+         * @param ox ray origin X coordinate
+         * @param oy ray origin Y coordinate
+         * @param oz ray origin Z coordinate
+         * @param dx ray direction X component
+         * @param dy ray direction Y component
+         * @param dz ray direction Z component
+         * @param reach maximum ray distance
+         */
         RaycastData(float ox, float oy, float oz, float dx, float dy, float dz, float reach) {
             this.ox = ox; this.oy = oy; this.oz = oz;
             this.dx = dx; this.dy = dy; this.dz = dz;
@@ -386,6 +467,11 @@ public class Game {
         }
     }
 
+    /**
+     * Application entry point. Creates and runs a new Game instance.
+     * 
+     * @param args command-line arguments (currently unused)
+     */
     public static void main(String[] args) {
         new Game().run();
     }

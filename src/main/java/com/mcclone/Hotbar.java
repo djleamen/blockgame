@@ -1,4 +1,4 @@
-/*
+/**
  * This file represents the player's hotbar/inventory.
  * It handles the 9-slot hotbar with block selection and rendering.
  */
@@ -7,12 +7,26 @@ package com.mcclone;
 
 import org.lwjgl.opengl.GL11;
 
+/**
+ * Manages the player's hotbar inventory system.
+ * Provides a 9-slot hotbar for block selection with rendering and navigation capabilities.
+ */
 public class Hotbar {
     
+    /** Number of slots in the hotbar */
     private static final int HOTBAR_SLOTS = 9;
+    
+    /** Currently selected slot index (0-8) */
     private int selectedSlot = 0;
+    
+    /** Array holding block types for each hotbar slot */
     private final int[] items = new int[HOTBAR_SLOTS];
     
+    /**
+     * Constructs a new Hotbar with default block types.
+     * Initializes the first three slots with grass, dirt, and cobblestone.
+     * Remaining slots are empty (air blocks).
+     */
     public Hotbar() {
         // initialize hotbar with some blocks
         items[0] = World.BLOCK_TYPE_GRASS;
@@ -24,12 +38,23 @@ public class Hotbar {
         }
     }
     
+    /**
+     * Selects a specific hotbar slot by index.
+     * 
+     * @param slot the slot index to select (0-8)
+     */
     public void selectSlot(int slot) {
         if (slot >= 0 && slot < HOTBAR_SLOTS) {
             selectedSlot = slot;
         }
     }
     
+    /**
+     * Scrolls the hotbar selection in the specified direction.
+     * Wraps around when reaching the first or last slot.
+     * 
+     * @param direction positive for scrolling right, negative for scrolling left
+     */
     public void scrollSelection(int direction) {
         selectedSlot += direction;
         if (selectedSlot < 0) {
@@ -39,18 +64,41 @@ public class Hotbar {
         }
     }
     
+    /**
+     * Gets the block type in the currently selected slot.
+     * 
+     * @return the block type ID of the selected item
+     */
     public int getSelectedItem() {
         return items[selectedSlot];
     }
     
+    /**
+     * Gets the index of the currently selected slot.
+     * 
+     * @return the selected slot index (0-8)
+     */
     public int getSelectedSlot() {
         return selectedSlot;
     }
     
+    /**
+     * Checks if the currently selected slot contains a placeable block.
+     * 
+     * @return true if the selected item is not air, false otherwise
+     */
     public boolean hasSelectedItem() {
         return items[selectedSlot] != World.BLOCK_TYPE_AIR;
     }
     
+    /**
+     * Renders the hotbar UI at the bottom center of the screen.
+     * Displays all 9 slots with their contents and highlights the selected slot.
+     * Uses orthographic projection and disables depth testing for 2D rendering.
+     * 
+     * @param windowWidth the width of the game window in pixels
+     * @param windowHeight the height of the game window in pixels
+     */
     public void render(int windowWidth, int windowHeight) {
         GL11.glMatrixMode(GL11.GL_PROJECTION);
         GL11.glPushMatrix();
@@ -110,12 +158,21 @@ public class Hotbar {
                 int itemY = hotbarY + (slotSize - itemSize) / 2;
                 
                 switch (items[i]) {
-                    case World.BLOCK_TYPE_GRASS -> GL11.glColor3f(0.4f, 0.8f, 0.2f);
-                    case World.BLOCK_TYPE_DIRT, World.BLOCK_TYPE_PLACED_DIRT -> GL11.glColor3f(0.6f, 0.4f, 0.2f);
-                    case World.BLOCK_TYPE_COBBLESTONE -> GL11.glColor3f(0.4f, 0.4f, 0.4f);
-                    default -> GL11.glColor3f(1.0f, 1.0f, 1.0f);
+                case World.BLOCK_TYPE_GRASS:
+                    GL11.glColor3f(0.4f, 0.8f, 0.2f);
+                    break;
+                case World.BLOCK_TYPE_DIRT:
+                case World.BLOCK_TYPE_PLACED_DIRT:
+                    GL11.glColor3f(0.6f, 0.4f, 0.2f);
+                    break;
+                case World.BLOCK_TYPE_COBBLESTONE:
+                    GL11.glColor3f(0.4f, 0.4f, 0.4f);
+                    break;
+                default:
+                    GL11.glColor3f(1.0f, 1.0f, 1.0f);
+                    break;
                 }
-            
+                
                 GL11.glBegin(GL11.GL_QUADS);
                 GL11.glVertex2f(itemX, itemY);
                 GL11.glVertex2f((float)itemX + itemSize, itemY);

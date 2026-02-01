@@ -1,4 +1,4 @@
-/*
+/**
  * This file generates simple textures programmatically for the blocks.
  * These are basic 16x16 pixel textures that mimic early Minecraft style.
  */
@@ -15,17 +15,34 @@ import java.util.logging.Logger;
 
 import javax.imageio.ImageIO;
 
+/**
+ * Utility class for generating procedural block textures.
+ * Creates 16x16 pixel textures for grass, dirt, and cobblestone blocks.
+ * Textures are saved as PNG files in the resources directory.
+ */
 public final class TextureGenerator {
 
     private static final Logger logger = Logger.getLogger(TextureGenerator.class.getName());
 
+    /** Size of generated textures in pixels */
     private static final int TEXTURE_SIZE = 16;
+    
+    /** Random number generator for texture variation */
     private static final Random RANDOM = new Random();
     
+    /**
+     * Private constructor to prevent instantiation of utility class.
+     * 
+     * @throws UnsupportedOperationException if instantiation is attempted
+     */
     private TextureGenerator() {
         throw new UnsupportedOperationException("Utility class");
     }
     
+    /**
+     * Generates all block textures and saves them to the resources directory.
+     * Creates grass top, dirt, grass side, and cobblestone textures.
+     */
     public static void generateTextures() {
         try {
             File texturesDir = new File("src/main/resources/textures");
@@ -49,6 +66,11 @@ public final class TextureGenerator {
         }
     }
     
+    /**
+     * Generates a grass top texture with green coloring and random variation.
+     * 
+     * @throws IOException if the texture file cannot be written
+     */
     private static void generateGrassTopTexture() throws IOException {
         BufferedImage image = new BufferedImage(TEXTURE_SIZE, TEXTURE_SIZE, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
@@ -72,6 +94,12 @@ public final class TextureGenerator {
         ImageIO.write(image, "PNG", new File("src/main/resources/textures/grass_top.png"));
     }
     
+    /**
+     * Generates a dirt texture with brown coloring and random variation.
+     * Includes darker and lighter spots plus occasional gray stones.
+     * 
+     * @throws IOException if the texture file cannot be written
+     */
     private static void generateDirtTexture() throws IOException {
         BufferedImage image = new BufferedImage(TEXTURE_SIZE, TEXTURE_SIZE, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
@@ -98,6 +126,11 @@ public final class TextureGenerator {
         ImageIO.write(image, "PNG", new File("src/main/resources/textures/dirt.png"));
     }
     
+    /**
+     * Generates a grass side texture with green on top and brown dirt below.
+     * 
+     * @throws IOException if the texture file cannot be written
+     */
     private static void generateGrassSideTexture() throws IOException {
         BufferedImage image = new BufferedImage(TEXTURE_SIZE, TEXTURE_SIZE, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
@@ -130,6 +163,12 @@ public final class TextureGenerator {
         ImageIO.write(image, "PNG", new File("src/main/resources/textures/grass_side.png"));
     }
     
+    /**
+     * Generates a cobblestone texture with gray base and stone-like patterns.
+     * Applies noise, lines, and dark spots to create a rough stone appearance.
+     * 
+     * @throws IOException if the texture file cannot be written
+     */
     private static void generateCobblestoneTexture() throws IOException {
         BufferedImage image = new BufferedImage(TEXTURE_SIZE, TEXTURE_SIZE, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
@@ -144,11 +183,22 @@ public final class TextureGenerator {
         ImageIO.write(image, "PNG", new File("src/main/resources/textures/cobblestone.png"));
     }
     
+    /**
+     * Applies the base gray color to the cobblestone texture.
+     * 
+     * @param g the graphics context to draw on
+     */
     private static void applyBaseTexture(Graphics2D g) {
         g.setColor(new Color(127, 127, 127));
         g.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
     }
     
+    /**
+     * Applies random noise variation to the cobblestone texture.
+     * Creates lighter and darker gray pixels for a natural stone look.
+     * 
+     * @param g the graphics context to draw on
+     */
     private static void applyNoiseTexture(Graphics2D g) {
         for (int x = 0; x < TEXTURE_SIZE; x++) {
             for (int y = 0; y < TEXTURE_SIZE; y++) {
@@ -168,6 +218,11 @@ public final class TextureGenerator {
         }
     }
     
+    /**
+     * Applies horizontal dark lines to simulate cobblestone mortar/cracks.
+     * 
+     * @param g the graphics context to draw on
+     */
     private static void applyHorizontalLines(Graphics2D g) {
         g.setColor(new Color(70, 70, 70));
         
@@ -180,6 +235,11 @@ public final class TextureGenerator {
         }
     }
     
+    /**
+     * Applies vertical dark lines with slight offset to simulate stone edges.
+     * 
+     * @param g the graphics context to draw on
+     */
     private static void applyVerticalLines(Graphics2D g) {
         g.setColor(new Color(70, 70, 70));
         
@@ -193,6 +253,11 @@ public final class TextureGenerator {
         }
     }
     
+    /**
+     * Applies random dark spots to add texture detail and variation.
+     * 
+     * @param g the graphics context to draw on
+     */
     private static void applyRandomDarkSpots(Graphics2D g) {
         g.setColor(new Color(60, 60, 60));
         
@@ -203,6 +268,11 @@ public final class TextureGenerator {
         }
     }
     
+    /**
+     * Main method to run texture generation standalone.
+     * 
+     * @param args command-line arguments (unused)
+     */
     public static void main(String[] args) {
         generateTextures();
     }
