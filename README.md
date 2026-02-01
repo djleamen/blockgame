@@ -1,7 +1,7 @@
 # Blockgame
 
 ![Status](https://img.shields.io/badge/status-alpha-yellow)
-![Java](https://img.shields.io/badge/Java-8%2B-red?logo=java)
+![Java](https://img.shields.io/badge/Java-11-red?logo=java)
 ![Maven](https://img.shields.io/badge/Built%20With-Maven-blue)
 ![Last Commit](https://img.shields.io/github/last-commit/djleamen/blockgame)
 ![OpenGL](https://img.shields.io/badge/Rendering-OpenGL-orange)
