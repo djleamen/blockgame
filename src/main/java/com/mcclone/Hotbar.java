@@ -28,14 +28,16 @@ public class Hotbar {
      * Remaining slots are empty (air blocks).
      */
     public Hotbar() {
-        // initialize hotbar with some blocks
+        // initialize hotbar with the default Minecraft-style starter palette
         items[0] = World.BLOCK_TYPE_GRASS;
         items[1] = World.BLOCK_TYPE_PLACED_DIRT;
         items[2] = World.BLOCK_TYPE_COBBLESTONE;
-        // slots 3-8 are empty (AIR)
-        for (int i = 3; i < HOTBAR_SLOTS; i++) {
-            items[i] = World.BLOCK_TYPE_AIR;
-        }
+        items[3] = World.BLOCK_TYPE_STONE;
+        items[4] = World.BLOCK_TYPE_SAND;
+        items[5] = World.BLOCK_TYPE_OAK_LOG;
+        items[6] = World.BLOCK_TYPE_OAK_PLANKS;
+        items[7] = World.BLOCK_TYPE_OAK_LEAVES;
+        items[8] = World.BLOCK_TYPE_AIR;
     }
     
     /**
@@ -69,8 +71,8 @@ public class Hotbar {
      * 
      * @return the block type ID of the selected item
      */
-    public int getSelectedItem() {
-        return items[selectedSlot];
+    public BlockType getSelectedItem() {
+        return BlockType.fromId(items[selectedSlot]);
     }
     
     /**
@@ -157,20 +159,27 @@ public class Hotbar {
                 int itemX = slotX + (slotSize - itemSize) / 2;
                 int itemY = hotbarY + (slotSize - itemSize) / 2;
                 
-                switch (items[i]) {
-                case World.BLOCK_TYPE_GRASS:
+                int id = items[i];
+                if (id == World.BLOCK_TYPE_GRASS) {
                     GL11.glColor3f(0.4f, 0.8f, 0.2f);
-                    break;
-                case World.BLOCK_TYPE_DIRT:
-                case World.BLOCK_TYPE_PLACED_DIRT:
+                } else if (id == World.BLOCK_TYPE_DIRT || id == World.BLOCK_TYPE_PLACED_DIRT) {
                     GL11.glColor3f(0.6f, 0.4f, 0.2f);
-                    break;
-                case World.BLOCK_TYPE_COBBLESTONE:
+                } else if (id == World.BLOCK_TYPE_COBBLESTONE) {
                     GL11.glColor3f(0.4f, 0.4f, 0.4f);
-                    break;
-                default:
+                } else if (id == World.BLOCK_TYPE_STONE) {
+                    GL11.glColor3f(0.5f, 0.5f, 0.5f);
+                } else if (id == World.BLOCK_TYPE_SAND) {
+                    GL11.glColor3f(0.86f, 0.81f, 0.64f);
+                } else if (id == World.BLOCK_TYPE_BEDROCK) {
+                    GL11.glColor3f(0.27f, 0.27f, 0.27f);
+                } else if (id == World.BLOCK_TYPE_OAK_LOG) {
+                    GL11.glColor3f(0.37f, 0.27f, 0.16f);
+                } else if (id == World.BLOCK_TYPE_OAK_PLANKS) {
+                    GL11.glColor3f(0.70f, 0.56f, 0.34f);
+                } else if (id == World.BLOCK_TYPE_OAK_LEAVES) {
+                    GL11.glColor3f(0.22f, 0.43f, 0.15f);
+                } else {
                     GL11.glColor3f(1.0f, 1.0f, 1.0f);
-                    break;
                 }
                 
                 GL11.glBegin(GL11.GL_QUADS);
