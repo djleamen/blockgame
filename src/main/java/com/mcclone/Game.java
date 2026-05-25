@@ -1,70 +1,134 @@
 /**
- * This file represents the main game loop.
- * It handles the game window, input, and rendering.
- * It uses GLFW for window management and OpenGL for rendering.
+ * Game loop, window management and input handling.
  */
 
 package com.mcclone;
 
+import java.awt.image.BufferedImage;
+import java.util.Map;
+
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.system.MemoryUtil.*;
-import org.lwjgl.opengl.GL;
+import static org.lwjgl.system.MemoryUtil.NULL;
 
 /**
- * Main game class that manages the game loop, window, rendering, and input handling.
- * This class uses GLFW for window management and OpenGL for 3D rendering.
- * It coordinates interactions between the player, world, and UI components.
+ * Main game class.
+ *
+ * <p>Owns the GLFW window, the {@link World}, the {@link Player} and the
+ * {@link Hotbar}, and runs the frame loop until the window is closed.</p>
  */
 public class Game {
 
-    /** GLFW window handle */
+    private static final Logger logger = LoggerFactory.getLogger(Game.class);
+
+    /** GLFW window handle. */
     private long window;
-    
-    /** The game world containing all blocks */
-    private final World  world  = new World();
-    
-    /** The player entity with position and camera */
-    private final Player player = new Player(0f, 3f + 1.62f, -2f);
-    
-    /** The hotbar UI for block selection */
+
+    /** The voxel world. */
+    private final World world = new World();
+
+    /** The player. */
+    private final Player player;
+
+    /** Hotbar UI / inventory. */
     private final Hotbar hotbar = new Hotbar();
-    
-    /** Timestamp of the last block break action */
+
+    /** Time of the last successful break action. */
     private double lastBreakTime = 0;
-    
-    /** Timestamp of the last block place action */
+
+    /** Time of the last successful place action. */
     private double lastPlaceTime = 0;
-    
-    /** Cooldown period in seconds between block interactions */
+
+    /** Cooldown between block interactions, in seconds. */
     private static final double COOLDOWN = 0.2;
-    
-    /** Mouse sensitivity multiplier for camera rotation */
-    private static final float MOUSE_SENSITIVITY = 0.08f;
+
+    /** Mouse sensitivity for camera rotation. */
+    private static final float MOUSE_SENSITIVITY = 0.15f;
+
+    /** Result of the latest raycast — what block the crosshair is on, or {@code null}. */
+    private int[] highlightedBlock;
+
+    /** Previous cursor X; used by the cursor-pos callback to compute deltas. */
+    private double lastCursorX;
+
+    /** Previous cursor Y; used by the cursor-pos callback to compute deltas. */
+    private double lastCursorY;
+
+    /** Set to true after the first cursor event so we don't apply an initial jump. */
+    private boolean cursorInitialised;
+
+    /** Current keyboard state maintained by GLFW key callbacks. */
+    private final InputState[] keyStates = new InputState[GLFW_KEY_LAST + 1];
+
+    /** Current mouse-button state maintained by GLFW mouse callbacks. */
+    private final InputState[] mouseButtonStates = new InputState[GLFW_MOUSE_BUTTON_LAST + 1];
+
+    /** True after the player clicks into the window and the cursor is captured. */
+    private boolean cursorCaptured;
+
+    /** True after the first rendered frame diagnostic has been printed. */
+    private boolean firstFrameLogged;
+
+    /** True after the first non-zero movement input diagnostic has been printed. */
+    private boolean movementLogged;
+
+    /** True after the first non-zero mouse delta diagnostic has been printed. */
+    private boolean mouseLookLogged;
+
+    /** Mouse movement accumulated by GLFW cursor callbacks between frames. */
+    private double queuedMouseDX;
+
+    /** Mouse movement accumulated by GLFW cursor callbacks between frames. */
+    private double queuedMouseDY;
 
     /**
-     * Constructs a new Game instance and initializes GLFW, OpenGL, and game systems.
-     * Creates an 800x600 window, sets up perspective projection, enables depth testing,
-     * captures the mouse cursor, and loads textures.
-     * 
-     * @throws IllegalStateException if GLFW initialization fails
+     * Create the game and initialise GLFW/OpenGL.
+     *
+     * @throws IllegalStateException if GLFW initialisation fails
      */
     public Game() {
+        // Error callback prints any GLFW failure to stderr instead of swallowing it.
+        org.lwjgl.glfw.GLFWErrorCallback.createPrint(System.err).set();
+
         if (!glfwInit()) {
             throw new IllegalStateException("GLFW init failed");
         }
 
+        // Request a sane OpenGL profile — defaults can land you on a 2.1 context
+        // on macOS where some calls behave oddly.
+        glfwDefaultWindowHints();
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+
         window = glfwCreateWindow(800, 600, "Blockgame 3D", NULL, NULL);
+        if (window == NULL) {
+            throw new IllegalStateException("Failed to create GLFW window");
+        }
+
+        for (int i = 0; i < keyStates.length; i++) {
+            keyStates[i] = new InputState();
+        }
+        for (int i = 0; i < mouseButtonStates.length; i++) {
+            mouseButtonStates[i] = new InputState();
+        }
+
         glfwMakeContextCurrent(window);
-        glfwSwapInterval(1);
-        glfwShowWindow(window);
+        // Disable vsync. On macOS / Metal, glfwSwapBuffers with swap interval 1
+        // can block the main loop almost indefinitely when no input arrives,
+        // which collapses the frame loop to "advance once per event". That
+        // makes WASD effectively useless because PRESS+RELEASE for the same
+        // key are processed in a single batch with no game tick between them.
+        glfwSwapInterval(0);
         GL.createCapabilities();
 
-        int[] w = new int[1];
-        int[]  h = new int[1];
-        glfwGetFramebufferSize(window, w, h);
-        setPerspective(w[0], h[0]);
+        updateViewportAndPerspective();
 
         glfwSetFramebufferSizeCallback(window, (win, newW, newH) -> {
             glViewport(0, 0, newW, newH);
@@ -73,21 +137,126 @@ public class Game {
 
         glEnable(GL_DEPTH_TEST);
         glClearColor(0.55f, 0.8f, 1.0f, 1);
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
         glfwSetScrollCallback(window, (win, xoffset, yoffset) -> hotbar.scrollSelection((int) -yoffset));
 
-        Block.initTextures();
+        Map<String, BufferedImage> textures = TextureGenerator.generateAll();
+        for (Map.Entry<String, BufferedImage> e : textures.entrySet()) {
+            TextureLoader.registerTexture(e.getKey(), e.getValue());
+        }
         TextureLoader.enableTextures();
+
+        float spawnX = 0f;
+        float spawnZ = -2f;
+        float spawnY = world.groundHeight(spawnX, spawnZ) + Player.getEYE();
+        player = new Player(spawnX, spawnY, spawnZ);
+
+        glfwSetWindowFocusCallback(window, (win, focused) -> {
+            if (!focused) {
+                releaseCursor();
+                for (InputState state : keyStates) {
+                    state.reset();
+                }
+                for (InputState state : mouseButtonStates) {
+                    state.reset();
+                }
+            }
+        });
+
+        glfwSetKeyCallback(window, (win, key, scancode, action, mods) -> {
+            if (key >= 0 && key < keyStates.length) {
+                if (action == GLFW_PRESS) {
+                    keyStates[key].setPressed(true);
+                } else if (action == GLFW_RELEASE) {
+                    keyStates[key].setPressed(false);
+                }
+            }
+            if (action == GLFW_PRESS) {
+                if (key == GLFW_KEY_ESCAPE) {
+                    if (cursorCaptured) {
+                        releaseCursor();
+                    } else {
+                        glfwSetWindowShouldClose(window, true);
+                    }
+                }
+            }
+        });
+
+        glfwSetMouseButtonCallback(window, (win, button, action, mods) -> {
+            if (button >= 0 && button < mouseButtonStates.length) {
+                if (action == GLFW_PRESS) {
+                    mouseButtonStates[button].setPressed(true);
+                } else if (action == GLFW_RELEASE) {
+                    mouseButtonStates[button].setPressed(false);
+                }
+            }
+            if (action == GLFW_PRESS) {
+                if (!cursorCaptured) {
+                    captureCursor();
+                }
+            }
+        });
+
+        // Keep this callback only to seed the cursor position. Camera look is
+        // polled once per frame in handleMouseLook(), which is more reliable
+        // with macOS cursor capture.
+        glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
+            if (cursorCaptured) {
+                if (!cursorInitialised) {
+                    lastCursorX = xpos;
+                    lastCursorY = ypos;
+                    cursorInitialised = true;
+                    return;
+                }
+                queuedMouseDX += xpos - lastCursorX;
+                queuedMouseDY += ypos - lastCursorY;
+                lastCursorX = xpos;
+                lastCursorY = ypos;
+                return;
+            }
+            lastCursorX = xpos;
+            lastCursorY = ypos;
+            cursorInitialised = true;
+        });
+
+        // Show the window LAST so it pops up only after the GL state is sane.
+        glfwShowWindow(window);
+        updateViewportAndPerspective();
     }
 
-    /**
-     * Sets up the perspective projection matrix based on window dimensions.
-     * Configures a 70-degree field of view with near and far clipping planes.
-     * 
-     * @param w the window width in pixels
-     * @param h the window height in pixels
-     */
+    private void captureCursor() {
+        if (cursorCaptured) {
+            return;
+        }
+        cursorCaptured = true;
+        cursorInitialised = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        double[] x = new double[1];
+        double[] y = new double[1];
+        glfwGetCursorPos(window, x, y);
+        lastCursorX = x[0];
+        lastCursorY = y[0];
+        cursorInitialised = true;
+    }
+
+    private void releaseCursor() {
+        cursorCaptured = false;
+        cursorInitialised = false;
+        queuedMouseDX = 0;
+        queuedMouseDY = 0;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+
+    private void updateViewportAndPerspective() {
+        int[] w = new int[1];
+        int[] h = new int[1];
+        glfwGetFramebufferSize(window, w, h);
+        int width = Math.max(1, w[0]);
+        int height = Math.max(1, h[0]);
+        glViewport(0, 0, width, height);
+        setPerspective(width, height);
+    }
+
     private void setPerspective(int w, int h) {
         float aspect = (float) w / h;
         glMatrixMode(GL_PROJECTION);
@@ -96,26 +265,13 @@ public class Game {
         glMatrixMode(GL_MODELVIEW);
     }
 
-    /**
-     * Applies a perspective projection using glFrustum.
-     * This is a helper method to create a perspective projection matrix.
-     * 
-     * @param fovY the field of view angle in degrees along the Y axis
-     * @param aspect the aspect ratio (width/height)
-     * @param zNear the distance to the near clipping plane (must be positive)
-     * @param zFar the distance to the far clipping plane (must be positive)
-     */
     private static void perspective(float fovY, float aspect, float zNear, float zFar) {
         double fH = Math.tan(Math.toRadians(fovY * 0.5)) * zNear;
         double fW = fH * aspect;
         GL11.glFrustum(-fW, fW, -fH, fH, zNear, zFar);
     }
 
-    /**
-     * Renders a white crosshair in the center of the screen.
-     * Temporarily switches to orthographic projection, disables depth testing,
-     * draws the crosshair as two perpendicular rectangles, then restores the previous state.
-     */
+    /** Draw a small white crosshair at the centre of the screen. */
     private void renderCrosshair() {
         glMatrixMode(GL_PROJECTION);
         glPushMatrix();
@@ -123,72 +279,71 @@ public class Game {
         int[] w = new int[1];
         int[] h = new int[1];
         glfwGetFramebufferSize(window, w, h);
-        
+
         glOrtho(0, w[0], h[0], 0, -1, 1);
-        
+
         glMatrixMode(GL_MODELVIEW);
         glPushMatrix();
         glLoadIdentity();
-        
+
         glDisable(GL_DEPTH_TEST);
-        
-        float centerX = w[0] / 2.0f;
-        float centerY = h[0] / 2.0f;
-        
-        float crosshairSize = 10.0f;
-        float crosshairThickness = 2.0f;
-        
-        glColor3f(1.0f, 1.0f, 1.0f);
-        
+        TextureLoader.disableTextures();
+
+        float cx = w[0] / 2.0f;
+        float cy = h[0] / 2.0f;
+        float s = 10.0f;
+        float t = 2.0f;
+
+        glColor3f(1f, 1f, 1f);
         glBegin(GL_QUADS);
-        glVertex2f(centerX - crosshairSize, centerY - crosshairThickness/2);
-        glVertex2f(centerX + crosshairSize, centerY - crosshairThickness/2);
-        glVertex2f(centerX + crosshairSize, centerY + crosshairThickness/2);
-        glVertex2f(centerX - crosshairSize, centerY + crosshairThickness/2);
+        glVertex2f(cx - s, cy - t / 2); glVertex2f(cx + s, cy - t / 2);
+        glVertex2f(cx + s, cy + t / 2); glVertex2f(cx - s, cy + t / 2);
         glEnd();
-        
         glBegin(GL_QUADS);
-        glVertex2f(centerX - crosshairThickness/2, centerY - crosshairSize);
-        glVertex2f(centerX + crosshairThickness/2, centerY - crosshairSize);
-        glVertex2f(centerX + crosshairThickness/2, centerY + crosshairSize);
-        glVertex2f(centerX - crosshairThickness/2, centerY + crosshairSize);
+        glVertex2f(cx - t / 2, cy - s); glVertex2f(cx + t / 2, cy - s);
+        glVertex2f(cx + t / 2, cy + s); glVertex2f(cx - t / 2, cy + s);
         glEnd();
-        
+
+        TextureLoader.enableTextures();
         glEnable(GL_DEPTH_TEST);
-        glColor3f(1.0f, 1.0f, 1.0f);
-        
+        glColor3f(1f, 1f, 1f);
+
         glPopMatrix();
         glMatrixMode(GL_PROJECTION);
         glPopMatrix();
         glMatrixMode(GL_MODELVIEW);
     }
 
-    /**
-     * Executes the main game loop.
-     * Continuously processes input, updates physics, renders the world and UI,
-     * and swaps buffers until the window is closed. Calculates delta time
-     * for frame-rate independent movement.
-     */
+    /** Run the main loop until the window closes. */
     public void run() {
         double last = glfwGetTime();
 
         while (!glfwWindowShouldClose(window)) {
             double now = glfwGetTime();
-            float dt = (float) (now - last);
+            float dt = (float) Math.min(now - last, 0.05);
             last = now;
 
             handleInput(dt);
-            player.tickPhysics(world);
+            player.tickPhysics(world, dt);
             player.checkAndFixStuckInBlock(world);
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glLoadIdentity();
             player.applyCamera();
             world.render();
-            
+
+            if (highlightedBlock != null) {
+                int bx = highlightedBlock[0];
+                int by = highlightedBlock[1];
+                int bz = highlightedBlock[2];
+                GL11.glPushMatrix();
+                GL11.glTranslatef(bx - World.SIZE / 2f, by, -bz);
+                BlockRenderer.renderOutline();
+                GL11.glPopMatrix();
+            }
+
             renderCrosshair();
-            
-            // render hotbar UI
+
             int[] w = new int[1];
             int[] h = new int[1];
             glfwGetFramebufferSize(window, w, h);
@@ -197,282 +352,215 @@ public class Game {
             glfwSwapBuffers(window);
             glfwPollEvents();
         }
-        
+
         TextureLoader.cleanup();
         glfwTerminate();
     }
 
-    /**
-     * Processes keyboard and mouse input for player movement and interaction.
-     * Handles WASD movement, space for jumping, number keys for hotbar selection,
-     * mouse movement for camera rotation, and mouse clicks for block breaking/placing.
-     * 
-     * @param dt delta time in seconds since the last frame
-     */
     private void handleInput(float dt) {
-        final float speed = 5 * dt;
+        updateInputStates();
 
-        float yaw = player.getYaw();
-        if (key(GLFW_KEY_W)) {
-            player.move((float) Math.sin(Math.toRadians(yaw)) * speed,
-                                         (float)-Math.cos(Math.toRadians(yaw)) * speed, world);
+        float baseSpeed = Player.WALK_SPEED;
+        if (isKeyDown(GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW_KEY_RIGHT_CONTROL)) baseSpeed *= Player.SPRINT_MULT;
+        if (isKeyDown(GLFW_KEY_LEFT_SHIFT)  || isKeyDown(GLFW_KEY_RIGHT_SHIFT))  baseSpeed *= Player.SNEAK_MULT;
+        float step = baseSpeed * dt;
+
+        handleMouseLook();
+
+        float dx = 0;
+        float dz = 0;
+
+        if (isKeyDown(GLFW_KEY_W)) dz += 1;
+        if (isKeyDown(GLFW_KEY_S)) dz -= 1;
+        if (isKeyDown(GLFW_KEY_A)) dx -= 1;
+        if (isKeyDown(GLFW_KEY_D)) dx += 1;
+
+        if (dx != 0 || dz != 0) {
+            player.move(dx, dz, step, world);
         }
-        if (key(GLFW_KEY_S)) {
-            player.move((float)-Math.sin(Math.toRadians(yaw)) * speed,
-                                         (float) Math.cos(Math.toRadians(yaw)) * speed, world);
-        }
-        if (key(GLFW_KEY_A)) {
-            player.move((float)-Math.cos(Math.toRadians(yaw)) * speed,
-                                         (float)-Math.sin(Math.toRadians(yaw)) * speed, world);
-        }
-        if (key(GLFW_KEY_D)) {
-            player.move((float) Math.cos(Math.toRadians(yaw)) * speed,
-                                         (float) Math.sin(Math.toRadians(yaw)) * speed, world);
-        }
-        if (key(GLFW_KEY_SPACE)) {
-            player.jump(0.18f);
+
+        if (isKeyDown(GLFW_KEY_SPACE)) {
+            player.jump(Player.JUMP_VELOCITY);
         }
 
         handleHotbarSelection();
+        handleBlockInteraction(dt);
+    }
 
-        double[] mx = new double[1];
-        double[] my = new double[1];
-        glfwGetCursorPos(window, mx, my);
-        raycastForBlockInteraction();
-        
-        // get current window size for proper mouse handling
-        int[] w = new int[1];
-        int[] h = new int[1];
-        glfwGetFramebufferSize(window, w, h);
-        
-        float centerX = w[0] / 2.0f;
-        float centerY = h[0] / 2.0f;
-        
-        // calculate mouse movement from center
-        float deltaX = (float)(mx[0] - centerX);
-        float deltaY = (float)(centerY - my[0]); // Invert Y for proper camera movement
-        
-        // only apply rotation if there's actual movement (avoids continuous spinning)
-        if (Math.abs(deltaX) > 0.1f || Math.abs(deltaY) > 0.1f) {
-            player.addYaw(deltaX * MOUSE_SENSITIVITY);
-            player.addPitch(deltaY * MOUSE_SENSITIVITY);
+    private void updateInputStates() {
+        for (InputState state : keyStates) {
+            state.update();
         }
-        
-        // reset cursor to center
-        glfwSetCursorPos(window, centerX, centerY);
-
-        if (key(GLFW_KEY_ESCAPE)) {
-            glfwSetWindowShouldClose(window, true);
+        for (InputState state : mouseButtonStates) {
+            state.update();
         }
     }
 
-    /**
-     * Handles hotbar slot selection using number keys 1-9.
-     * Each key corresponds to a hotbar slot index (1 = slot 0, 2 = slot 1, etc.).
-     */
+    private boolean isKeyDown(int key) {
+        return key >= 0 && key < keyStates.length && keyStates[key].isDown();
+    }
+
+    private boolean wasKeyJustPressed(int key) {
+        return key >= 0 && key < keyStates.length && keyStates[key].wasJustPressed();
+    }
+
+    private boolean isMouseDown(int button) {
+        return button >= 0 && button < mouseButtonStates.length && mouseButtonStates[button].isDown();
+    }
+
+    private boolean wasMouseJustPressed(int button) {
+        return button >= 0 && button < mouseButtonStates.length && mouseButtonStates[button].wasJustPressed();
+    }
+
+    private void handleMouseLook() {
+        if (!cursorCaptured) {
+            queuedMouseDX = 0;
+            queuedMouseDY = 0;
+            return;
+        }
+
+        double dx = queuedMouseDX;
+        double dy = queuedMouseDY;
+        queuedMouseDX = 0;
+        queuedMouseDY = 0;
+
+        if (dx != 0 || dy != 0) {
+            player.addYaw((float) dx * MOUSE_SENSITIVITY);
+            // Standard FPS look: dragging the mouse down should pitch the
+            // camera down (positive pitch in our convention). Don't negate dy.
+            player.addPitch((float) dy * MOUSE_SENSITIVITY);
+        }
+    }
+
     private void handleHotbarSelection() {
-        if (key(GLFW_KEY_1)) {
-            hotbar.selectSlot(0);
-        }
-        if (key(GLFW_KEY_2)) {
-            hotbar.selectSlot(1);
-        }
-        if (key(GLFW_KEY_3)) {
-            hotbar.selectSlot(2);
-        }
-        if (key(GLFW_KEY_4)) {
-            hotbar.selectSlot(3);
-        }
-        if (key(GLFW_KEY_5)) {
-            hotbar.selectSlot(4);
-        }
-        if (key(GLFW_KEY_6)) {
-            hotbar.selectSlot(5);
-        }
-        if (key(GLFW_KEY_7)) {
-            hotbar.selectSlot(6);
-        }
-        if (key(GLFW_KEY_8)) {
-            hotbar.selectSlot(7);
-        }
-        if (key(GLFW_KEY_9)) {
-            hotbar.selectSlot(8);
-        }
-    }
-
-    /**
-     * Checks if a specific key is currently pressed.
-     * 
-     * @param k the GLFW key code to check
-     * @return true if the key is pressed, false otherwise
-     */
-    private boolean key(int k) { return glfwGetKey(window, k) == GLFW_PRESS; }
-
-    /**
-     * Performs raycasting from the player's eye position to detect block interactions.
-     * Casts a ray in the direction the player is looking and checks for blocks within reach.
-     * If a block is found, handles breaking (left click) and placing (Enter key) actions.
-     * Uses a step size of 0.05 units along the ray for collision detection.
-     */
-    private void raycastForBlockInteraction() {
-        RaycastData rayData = calculateRaycastData();
-        double now = glfwGetTime();
-        
-        int[] lastAirPos = {-1, -1, -1};
-        
-        // Use double for loop index to avoid PMD warning about float loop indices
-        double stepSize = 0.05;
-        for (double t = 0; t <= rayData.reach; t += stepSize) {
-            int[] blockPos = getBlockPosition(rayData, (float) t);
-            
-            if (!world.hasBlock(blockPos[0], blockPos[1], blockPos[2])) {
-                updateLastAirPosition(lastAirPos, blockPos);
-            } else {
-                handleBlockInteraction(blockPos, lastAirPos, now);
-                break;
+        for (int i = 0; i < 9; i++) {
+            if (wasKeyJustPressed(GLFW_KEY_1 + i)) {
+                hotbar.selectSlot(i);
             }
         }
     }
-    
-    /**
-     * Calculates the ray origin and direction for raycasting based on player position and camera angles.
-     * The ray starts from the player's eye position and extends in the direction they're looking.
-     * 
-     * @return a RaycastData object containing ray origin, direction, and reach distance
-     */
-    private RaycastData calculateRaycastData() {
-        float yaw = (float) Math.toRadians(player.getYaw());
-        float pitch = (float) Math.toRadians(player.getPitch());
 
-        float ox = player.getX();
-        float oy = player.getY() - Player.getEYE() + 1.62f;
-        float oz = player.getZ();
+    private void handleBlockInteraction(float dt) {
+        highlightedBlock = raycast(player.getEyePosition(), player.getViewVector(), 5.0f);
 
-        float dx = (float) (Math.sin(yaw) * Math.cos(pitch));
-        float dy = (float) Math.sin(pitch);
-        float dz = (float) (-Math.cos(yaw) * Math.cos(pitch));
-        
-        return new RaycastData(ox, oy, oz, dx, dy, dz, 5.0f);
-    }
-    
-    /**
-     * Calculates the block coordinates at a specific distance along the raycast.
-     * Converts world coordinates to block grid coordinates, accounting for world offset.
-     * 
-     * @param rayData the raycast data containing origin and direction
-     * @param t the distance along the ray from the origin
-     * @return an array containing [x, y, z] block coordinates
-     */
-    private int[] getBlockPosition(RaycastData rayData, float t) {
-        float cx = rayData.ox + rayData.dx * t;
-        float cy = rayData.oy + rayData.dy * t;
-        float cz = rayData.oz + rayData.dz * t;
-    
-        int bx = (int) Math.floor(cx + World.SIZE / 2f);
-        int by = (int) Math.floor(cy);
-        int bz = (int) Math.floor(-cz);
-        
-        return new int[]{bx, by, bz};
-    }
-    
-    /**
-     * Updates the last known air block position during raycasting.
-     * This is used to determine where to place blocks (in the last empty space before hitting a solid block).
-     * 
-     * @param lastAirPos the array to update with the last air position [x, y, z]
-     * @param blockPos the current block position being checked [x, y, z]
-     */
-    private void updateLastAirPosition(int[] lastAirPos, int[] blockPos) {
-        lastAirPos[0] = blockPos[0];
-        lastAirPos[1] = blockPos[1];
-        lastAirPos[2] = blockPos[2];
-    }
-    
-    /**
-     * Handles both block breaking and placing interactions at the raycast hit location.
-     * 
-     * @param blockPos the position of the solid block that was hit [x, y, z]
-     * @param lastAirPos the last air position before the solid block [x, y, z]
-     * @param now the current time in seconds for cooldown checks
-     */
-    private void handleBlockInteraction(int[] blockPos, int[] lastAirPos, double now) {
-        handleBlockBreaking(blockPos, now);
-        handleBlockPlacing(lastAirPos, now);
-    }
-    
-    /**
-     * Handles block breaking when the left mouse button is pressed.
-     * Enforces a cooldown period between consecutive breaks to prevent spam.
-     * 
-     * @param blockPos the position of the block to break [x, y, z]
-     * @param now the current time in seconds
-     */
-    private void handleBlockBreaking(int[] blockPos, double now) {
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && (now - lastBreakTime) >= COOLDOWN) {
-            world.breakBlock(blockPos[0], blockPos[1], blockPos[2]);
-            lastBreakTime = now;
+        double now = glfwGetTime();
+
+        if (highlightedBlock != null) {
+            if (isMouseDown(GLFW_MOUSE_BUTTON_LEFT) && (now - lastBreakTime > COOLDOWN)) {
+                world.setBlock(highlightedBlock[0], highlightedBlock[1], highlightedBlock[2], BlockType.AIR);
+                lastBreakTime = now;
+            }
+            if (isMouseDown(GLFW_MOUSE_BUTTON_RIGHT) && (now - lastPlaceTime > COOLDOWN)) {
+                int[] placePos = getPlacePosition(highlightedBlock);
+                if (placePos != null) {
+                    world.setBlock(placePos[0], placePos[1], placePos[2], hotbar.getSelectedItem());
+                    lastPlaceTime = now;
+                }
+            }
         }
     }
-    
-    /**
-     * Handles block placing when the Enter key is pressed.
-     * Places the currently selected hotbar item at the last air position before the solid block.
-     * Enforces a cooldown period and checks for valid placement conditions.
-     * 
-     * @param lastAirPos the position where the block should be placed [x, y, z]
-     * @param now the current time in seconds
-     */
-    private void handleBlockPlacing(int[] lastAirPos, double now) {
-        if (key(GLFW_KEY_ENTER) && (now - lastPlaceTime) >= COOLDOWN && lastAirPos[0] != -1 && hotbar.hasSelectedItem()) {
-            world.placeBlockOfType(lastAirPos[0], lastAirPos[1], lastAirPos[2], hotbar.getSelectedItem());
-            lastPlaceTime = now;
-        }
-    }
-    
-    /**
-     * Data container for raycast calculations.
-     * Stores the ray origin, direction vector, and maximum reach distance.
-     */
-    private static class RaycastData {
-        /** Ray origin X coordinate in world space */
-        final float ox;
-        /** Ray origin Y coordinate in world space */
-        final float oy;
-        /** Ray origin Z coordinate in world space */
-        final float oz;
-        /** Ray direction X component (normalized) */
-        final float dx;
-        /** Ray direction Y component (normalized) */
-        final float dy;
-        /** Ray direction Z component (normalized) */
-        final float dz;
-        /** Maximum reach distance for raycasting */
-        final float reach;
-        
-        /**
-         * Constructs a new RaycastData with the specified origin, direction, and reach.
-         * 
-         * @param ox ray origin X coordinate
-         * @param oy ray origin Y coordinate
-         * @param oz ray origin Z coordinate
-         * @param dx ray direction X component
-         * @param dy ray direction Y component
-         * @param dz ray direction Z component
-         * @param reach maximum ray distance
-         */
-        RaycastData(float ox, float oy, float oz, float dx, float dy, float dz, float reach) {
-            this.ox = ox; this.oy = oy; this.oz = oz;
-            this.dx = dx; this.dy = dy; this.dz = dz;
-            this.reach = reach;
+
+    private int[] getPlacePosition(int[] blockAndFace) {
+        int x = blockAndFace[0];
+        int y = blockAndFace[1];
+        int z = blockAndFace[2];
+        int face = blockAndFace[3];
+
+        switch (face) {
+            case 0: return new int[]{x, y, z + 1}; // North
+            case 1: return new int[]{x, y, z - 1}; // South
+            case 2: return new int[]{x, y + 1, z}; // Up
+            case 3: return new int[]{x, y - 1, z}; // Down
+            case 4: return new int[]{x + 1, y, z}; // East
+            case 5: return new int[]{x - 1, y, z}; // West
+            default: return null;
         }
     }
 
     /**
-     * Application entry point. Creates and runs a new Game instance.
-     * 
-     * @param args command-line arguments (currently unused)
+     * Cast a ray from the player's eyes to find the block they are looking at.
+     *
+     * <p>Uses a standard DDA (Digital Differential Analyzer) grid traversal.
+     * The eye position and view vector are in world space; we convert into the
+     * block array's coordinate system (X offset by SIZE/2, Z negated) before
+     * stepping so the traversal is just integer block indices.</p>
+     *
+     * @param eyePos      player's eye position [x, y, z]
+     * @param viewVector  normalized view direction vector [x, y, z]
+     * @param maxDistance maximum distance to check, in blocks
+     * @return array of [blockX, blockY, blockZ, face] or {@code null} if no block is hit
      */
+    public int[] raycast(float[] eyePos, float[] viewVector, float maxDistance) {
+        // Convert to block-array coordinates.
+        float ox = eyePos[0] + World.SIZE / 2f;
+        float oy = eyePos[1];
+        float oz = -eyePos[2];
+
+        float dx = viewVector[0];
+        float dy = viewVector[1];
+        float dz = -viewVector[2];
+
+        int bx = (int) Math.floor(ox);
+        int by = (int) Math.floor(oy);
+        int bz = (int) Math.floor(oz);
+
+        int stepX = Float.compare(dx, 0);
+        int stepY = Float.compare(dy, 0);
+        int stepZ = Float.compare(dz, 0);
+
+        float tDeltaX = (dx != 0f) ? Math.abs(1f / dx) : Float.POSITIVE_INFINITY;
+        float tDeltaY = (dy != 0f) ? Math.abs(1f / dy) : Float.POSITIVE_INFINITY;
+        float tDeltaZ = (dz != 0f) ? Math.abs(1f / dz) : Float.POSITIVE_INFINITY;
+
+        float tMaxX = (dx != 0f) ? (((stepX > 0 ? bx + 1 : bx) - ox) / dx) : Float.POSITIVE_INFINITY;
+        float tMaxY = (dy != 0f) ? (((stepY > 0 ? by + 1 : by) - oy) / dy) : Float.POSITIVE_INFINITY;
+        float tMaxZ = (dz != 0f) ? (((stepZ > 0 ? bz + 1 : bz) - oz) / dz) : Float.POSITIVE_INFINITY;
+
+        int face = -1;
+        float t = 0f;
+
+        // Safety cap in addition to the distance check so we can never loop
+        // forever even if something pathological happens.
+        int maxIterations = (int) Math.ceil(maxDistance * 3) + 8;
+        int iterations = 0;
+
+        while (t <= maxDistance && iterations++ < maxIterations) {
+            if (world.hasBlock(bx, by, bz)) {
+                return new int[]{bx, by, bz, face};
+            }
+
+            if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+                t = tMaxX;
+                tMaxX += tDeltaX;
+                bx += stepX;
+                face = (stepX > 0) ? 5 : 4; // We hit the -X face when stepping +X, so place West (-X)
+            } else if (tMaxY < tMaxZ) {
+                t = tMaxY;
+                tMaxY += tDeltaY;
+                by += stepY;
+                face = (stepY > 0) ? 3 : 2; // stepping up hits bottom face → place below (Down)
+            } else {
+                t = tMaxZ;
+                tMaxZ += tDeltaZ;
+                bz += stepZ;
+                face = (stepZ > 0) ? 1 : 0; // stepping +bz hits z-1 face → place at z-1 (South)
+            }
+        }
+        return null;
+    }
+
     public static void main(String[] args) {
+        // CRITICAL on macOS: any AWT class (BufferedImage, Graphics2D, ImageIO)
+        // initialises Apple's AWT NSApplication, which then hijacks the Cocoa
+        // event loop and causes glfwPollEvents() to block forever — callbacks
+        // still fire from inside the blocked call, so input looks "received"
+        // but the main loop never reaches frame 2.
+        //
+        // Setting headless mode keeps offscreen AWT (which is all we use for
+        // texture generation) working while preventing the NSApp hijack.
+        System.setProperty("java.awt.headless", "true");
+        // Also tell AWT not to install the Cocoa main runloop hook.
+        System.setProperty("apple.awt.UIElement", "true");
         new Game().run();
     }
 }

@@ -17,15 +17,17 @@ This project is a super basic 3D block game with heavy inspiration taken from ea
 ## Features
 - **Player Movement & Physics**
   - WASD movement with mouse look
-  - Gravity and jumping mechanics
+  - Delta-time-based gravity, jumping, and terminal velocity
+  - Sprint (Ctrl) and sneak (Shift) speed modifiers
   - Collision detection with blocks
   - Anti-stuck system (automatically frees player if trapped inside blocks)
 
 - **Block System**
-  - Multiple block types: Grass, Dirt, and Cobblestone
+  - 9 block types: Grass, Dirt, Cobblestone, Stone, Sand, Bedrock, Oak Log, Oak Planks, Oak Leaves
   - Realistic grass-to-dirt conversion (grass becomes dirt when covered, dirt becomes grass when exposed)
-  - Procedurally generated textures (16x16)
-  - Proper block rendering with appropriate textures
+  - Procedurally generated 16×16 textures built in memory at startup — no PNGs required
+  - Per-face culling: only faces exposed to air are drawn
+  - Bedrock is unbreakable
 
 - **Hotbar & Inventory**
   - 9-slot hotbar system
@@ -34,19 +36,21 @@ This project is a super basic 3D block game with heavy inspiration taken from ea
   - Only place blocks when holding them (empty hand can't place blocks)
 
 - **World Generation**
-  - 64x64 world with 3-layer structure
-  - Grass surface layer
-  - Two cobblestone foundation layers underneath
-  - Layered world geology for realistic mining
+  - 64×64 world, up to 64 blocks tall
+  - Value-noise heightmap terrain with hills and beaches
+  - Bedrock floor, stone fill, dirt crust, grass/sand surface
+  - Small oak trees scattered across grass tiles
+  - Deterministic seed so the world looks the same every launch
 
 - **User Interface**
   - Crosshair for precise block targeting
+  - Wireframe outline on whichever block the crosshair is currently on
   - Hotbar display showing available blocks
   - Clean, minimalist UI design
 
 - **Building & Mining**
-  - Left-click to break any block
-  - Enter key to place selected block
+  - Left-click to break any block (except bedrock)
+  - Right-click (or Enter) to place selected block
   - 5-block reach distance
   - Cooldown system prevents spam clicking
 
@@ -57,21 +61,28 @@ This project is a super basic 3D block game with heavy inspiration taken from ea
 - **WASD**: Move forward/backward/left/right
 - **Mouse**: Look around (camera control)
 - **Space**: Jump
+- **Left Ctrl**: Sprint
+- **Left Shift**: Sneak (slower)
 - **Escape**: Exit game
 
 ### Building & Mining
 
 - **Left Click**: Break blocks
-- **Enter**: Place selected block
+- **Right Click** (or **Enter**): Place selected block
 - **Mouse Scroll**: Change hotbar selection
 - **Number Keys (1-9)**: Select hotbar slot directly
 
 ### Hotbar
 
-- **Slot 1**: Grass blocks
-- **Slot 2**: Dirt blocks  
-- **Slot 3**: Cobblestone blocks
-- **Slots 4-9**: Empty (available for future block types)
+- **Slot 1**: Grass
+- **Slot 2**: Dirt
+- **Slot 3**: Cobblestone
+- **Slot 4**: Stone
+- **Slot 5**: Sand
+- **Slot 6**: Oak log
+- **Slot 7**: Oak planks
+- **Slot 8**: Oak leaves
+- **Slot 9**: Empty
 
 ## Setup Instructions
 
@@ -111,13 +122,14 @@ This project is a super basic 3D block game with heavy inspiration taken from ea
 - Java Development Kit (JDK) 8 or higher
 - Maven
 
-## Future Improvements
+## Roadmap
 
-- Additional block types (stone, wood, etc.)
-- Save/load world functionality
-- Infinite world generation
-- Inventory system with block collection
-- Day/night cycle
-- Lighting system
-- Multiplayer support
-- Water and physics simulation
+The detailed multi-phase plan — including which existing GitHub issues each
+phase closes — lives in [ROADMAP.md](ROADMAP.md). Highlights:
+
+- **Phase 2** — chunk container, inventory pickup, water/gravel/ores, basic tools
+- **Phase 3** — save/load to `.bgsave` ([#2](https://github.com/djleamen/blockgame/issues/2))
+- **Phase 4** — day/night cycle + lighting ([#5](https://github.com/djleamen/blockgame/issues/5), [#6](https://github.com/djleamen/blockgame/issues/6))
+- **Phase 5** — streaming chunks for infinite worlds ([#3](https://github.com/djleamen/blockgame/issues/3))
+- **Phase 6** — swept-AABB collision and water/lava physics ([#8](https://github.com/djleamen/blockgame/issues/8))
+- **Phase 7** — multiplayer ([#7](https://github.com/djleamen/blockgame/issues/7))
