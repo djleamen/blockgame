@@ -9,8 +9,6 @@ import java.util.Map;
 
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -23,8 +21,6 @@ import static org.lwjgl.system.MemoryUtil.NULL;
  * {@link Hotbar}, and runs the frame loop until the window is closed.</p>
  */
 public class Game {
-
-    private static final Logger logger = LoggerFactory.getLogger(Game.class);
 
     /** GLFW window handle. */
     private long window;
@@ -70,15 +66,6 @@ public class Game {
 
     /** True after the player clicks into the window and the cursor is captured. */
     private boolean cursorCaptured;
-
-    /** True after the first rendered frame diagnostic has been printed. */
-    private boolean firstFrameLogged;
-
-    /** True after the first non-zero movement input diagnostic has been printed. */
-    private boolean movementLogged;
-
-    /** True after the first non-zero mouse delta diagnostic has been printed. */
-    private boolean mouseLookLogged;
 
     /** Mouse movement accumulated by GLFW cursor callbacks between frames. */
     private double queuedMouseDX;
@@ -361,8 +348,12 @@ public class Game {
         updateInputStates();
 
         float baseSpeed = Player.WALK_SPEED;
-        if (isKeyDown(GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW_KEY_RIGHT_CONTROL)) baseSpeed *= Player.SPRINT_MULT;
-        if (isKeyDown(GLFW_KEY_LEFT_SHIFT)  || isKeyDown(GLFW_KEY_RIGHT_SHIFT))  baseSpeed *= Player.SNEAK_MULT;
+        if (isKeyDown(GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW_KEY_RIGHT_CONTROL)) {
+            baseSpeed *= Player.SPRINT_MULT;
+        }
+        if (isKeyDown(GLFW_KEY_LEFT_SHIFT) || isKeyDown(GLFW_KEY_RIGHT_SHIFT)) {
+            baseSpeed *= Player.SNEAK_MULT;
+        }
         float step = baseSpeed * dt;
 
         handleMouseLook();
@@ -370,10 +361,18 @@ public class Game {
         float dx = 0;
         float dz = 0;
 
-        if (isKeyDown(GLFW_KEY_W)) dz += 1;
-        if (isKeyDown(GLFW_KEY_S)) dz -= 1;
-        if (isKeyDown(GLFW_KEY_A)) dx -= 1;
-        if (isKeyDown(GLFW_KEY_D)) dx += 1;
+        if (isKeyDown(GLFW_KEY_W)) {
+            dz += 1;
+        }
+        if (isKeyDown(GLFW_KEY_S)) {
+            dz -= 1;
+        }
+        if (isKeyDown(GLFW_KEY_A)) {
+            dx -= 1;
+        }
+        if (isKeyDown(GLFW_KEY_D)) {
+            dx += 1;
+        }
 
         if (dx != 0 || dz != 0) {
             player.move(dx, dz, step, world);
@@ -384,7 +383,7 @@ public class Game {
         }
 
         handleHotbarSelection();
-        handleBlockInteraction(dt);
+        handleBlockInteraction();
     }
 
     private void updateInputStates() {
@@ -406,10 +405,6 @@ public class Game {
 
     private boolean isMouseDown(int button) {
         return button >= 0 && button < mouseButtonStates.length && mouseButtonStates[button].isDown();
-    }
-
-    private boolean wasMouseJustPressed(int button) {
-        return button >= 0 && button < mouseButtonStates.length && mouseButtonStates[button].wasJustPressed();
     }
 
     private void handleMouseLook() {
@@ -440,25 +435,28 @@ public class Game {
         }
     }
 
-    private void handleBlockInteraction(float dt) {
-        highlightedBlock = raycast(player.getEyePosition(), player.getViewVector(), 5.0f);
+    private void handleBlockInteraction() {
+        int[] hit = raycast(player.getEyePosition(), player.getViewVector(), 5.0f);
+        highlightedBlock = (hit.length == 0) ? null : hit;
 
         double now = glfwGetTime();
 
         if (highlightedBlock != null) {
-            if (isMouseDown(GLFW_MOUSE_BUTTON_LEFT) && (now - lastBreakTime > COOLDOWN)) {
+            if (isMouseDown(GLFW_MOUSE_BUTTON_LEFT) && now - lastBreakTime > COOLDOWN) {
                 world.setBlock(highlightedBlock[0], highlightedBlock[1], highlightedBlock[2], BlockType.AIR);
                 lastBreakTime = now;
             }
-            if (isMouseDown(GLFW_MOUSE_BUTTON_RIGHT) && (now - lastPlaceTime > COOLDOWN)) {
+            if (isMouseDown(GLFW_MOUSE_BUTTON_RIGHT) && now - lastPlaceTime > COOLDOWN) {
                 int[] placePos = getPlacePosition(highlightedBlock);
-                if (placePos != null) {
+                if (placePos.length != 0) {
                     world.setBlock(placePos[0], placePos[1], placePos[2], hotbar.getSelectedItem());
                     lastPlaceTime = now;
                 }
             }
         }
     }
+
+    private static final int[] NO_PLACE = new int[0];
 
     private int[] getPlacePosition(int[] blockAndFace) {
         int x = blockAndFace[0];
@@ -473,7 +471,7 @@ public class Game {
             case 3: return new int[]{x, y - 1, z}; // Down
             case 4: return new int[]{x + 1, y, z}; // East
             case 5: return new int[]{x - 1, y, z}; // West
-            default: return null;
+            default: return NO_PLACE;
         }
     }
 
@@ -546,7 +544,7 @@ public class Game {
                 face = (stepZ > 0) ? 1 : 0; // stepping +bz hits z-1 face → place at z-1 (South)
             }
         }
-        return null;
+        return NO_PLACE;
     }
 
     public static void main(String[] args) {

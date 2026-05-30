@@ -9,10 +9,8 @@
 
 package com.mcclone;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.lwjgl.opengl.GL11;
@@ -102,8 +100,12 @@ public class World {
                 float n = sampleBilinear(coarse, x, z, 8) * 0.7f
                         + sampleBilinear(fine, x, z, 4) * 0.3f;
                 int h = SEA_LEVEL - 2 + Math.round(n * 12f);
-                if (h < 1) h = 1;
-                if (h > HEIGHT - 8) h = HEIGHT - 8;
+                if (h < 1) {
+                    h = 1;
+                }
+                if (h > HEIGHT - 8) {
+                    h = HEIGHT - 8;
+                }
                 heights[x][z] = h;
             }
         }
@@ -144,8 +146,10 @@ public class World {
     }
 
     private boolean plantTree(int x, int y, int z) {
-        int trunkH = 4 + (Math.abs(x * 31 + z) % 2);
-        if (y + trunkH + 1 >= HEIGHT) return false;
+        int trunkH = 4 + Math.abs(x * 31 + z) % 2;
+        if (y + trunkH + 1 >= HEIGHT) {
+            return false;
+        }
         for (int i = 0; i < trunkH; i++) {
             blocks[x][y + i][z] = BLOCK_TYPE_OAK_LOG;
         }
@@ -153,7 +157,9 @@ public class World {
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 for (int dy = -1; dy <= 0; dy++) {
-                    if (Math.abs(dx) == 2 && Math.abs(dz) == 2) continue;
+                    if (Math.abs(dx) == 2 && Math.abs(dz) == 2) {
+                        continue;
+                    }
                     int lx = x + dx;
                     int lz = z + dz;
                     int ly = topY + dy;
@@ -165,7 +171,9 @@ public class World {
         }
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-                if (Math.abs(dx) + Math.abs(dz) > 1) continue;
+                if (Math.abs(dx) + Math.abs(dz) > 1) {
+                    continue;
+                }
                 int lx = x + dx;
                 int lz = z + dz;
                 int ly = topY + 1;
@@ -242,7 +250,9 @@ public class World {
             for (int y = 0; y < HEIGHT; y++) {
                 for (int z = 0; z < SIZE; z++) {
                     int id = blocks[x][y][z];
-                    if (id == BLOCK_TYPE_AIR) continue;
+                    if (id == BLOCK_TYPE_AIR) {
+                        continue;
+                    }
                     BlockType type = BlockType.fromId(id);
                     float wx = x + ox;
                     float wy = y;
@@ -271,7 +281,9 @@ public class World {
             case FACE_BOTTOM: key = type.bottomTexture(); break;
             default: key = type.sideTexture(); break;
         }
-        if (key == null) return;
+        if (key == null) {
+            return;
+        }
         FaceList list = builders.computeIfAbsent(key, k -> new FaceList());
         // Each face is 4 verts × 5 floats. Block occupies wx..wx+1, wy..wy+1, wz..wz-1.
         switch (face) {
@@ -383,9 +395,13 @@ public class World {
             int oldId = blocks[x][y][z];
             int newId = (blockType != null) ? blockType.id() : BLOCK_TYPE_AIR;
 
-            if (oldId == newId) return;
+            if (oldId == newId) {
+                return;
+            }
 
-            if (oldId == BLOCK_TYPE_BEDROCK) return;
+            if (oldId == BLOCK_TYPE_BEDROCK) {
+                return;
+            }
 
             blocks[x][y][z] = newId;
 
@@ -427,17 +443,21 @@ public class World {
      *         transparent.
      */
     public boolean isOpaque(int x, int y, int z) {
-        if (y < 0) return true;
-        if (!inBounds(x, y, z)) return false;
+        if (y < 0) {
+            return true;
+        }
+        if (!inBounds(x, y, z)) {
+            return false;
+        }
         return BlockType.fromId(blocks[x][y][z]).isOpaque();
     }
 
     /**
      * A simple float[] wrapper that grows as needed.
      */
-    private static class FaceList {
+    private static final class FaceList {
         float[] data = new float[128];
-        int size = 0;
+        int size;
 
         void quad(float u1, float v1, float x1, float y1, float z1,
                   float u2, float v2, float x2, float y2, float z2,
@@ -447,11 +467,11 @@ public class World {
                 data = Arrays.copyOf(data, data.length * 2);
             }
             int i = size;
-            data[i++] = u1; data[i++] = v1; data[i++] = x1; data[i++] = y1; data[i++] = z1;
-            data[i++] = u2; data[i++] = v2; data[i++] = x2; data[i++] = y2; data[i++] = z2;
-            data[i++] = u3; data[i++] = v3; data[i++] = x3; data[i++] = y3; data[i++] = z3;
-            data[i++] = u4; data[i++] = v4; data[i++] = x4; data[i++] = y4; data[i++] = z4;
-            size = i;
+            data[i] = u1; data[i + 1] = v1; data[i + 2] = x1; data[i + 3] = y1; data[i + 4] = z1;
+            data[i + 5] = u2; data[i + 6] = v2; data[i + 7] = x2; data[i + 8] = y2; data[i + 9] = z2;
+            data[i + 10] = u3; data[i + 11] = v3; data[i + 12] = x3; data[i + 13] = y3; data[i + 14] = z3;
+            data[i + 15] = u4; data[i + 16] = v4; data[i + 17] = x4; data[i + 18] = y4; data[i + 19] = z4;
+            size = i + 20;
         }
 
         float[] toArray() {

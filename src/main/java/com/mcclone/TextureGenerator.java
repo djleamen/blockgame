@@ -159,13 +159,17 @@ public final class TextureGenerator {
         g.setColor(new Color(70, 70, 70));
         for (int y = 3; y < TEXTURE_SIZE; y += 4) {
             for (int x = 0; x < TEXTURE_SIZE; x++) {
-                if (RANDOM.nextDouble() < 0.8) g.fillRect(x, y, 1, 1);
+                if (RANDOM.nextDouble() < 0.8) {
+                    g.fillRect(x, y, 1, 1);
+                }
             }
         }
         for (int x = 2; x < TEXTURE_SIZE; x += 5) {
             for (int y = 0; y < TEXTURE_SIZE; y++) {
-                int ox = x + (y / 4) % 2 * 2;
-                if (ox < TEXTURE_SIZE && RANDOM.nextDouble() < 0.7) g.fillRect(ox, y, 1, 1);
+                int ox = x + y / 4 % 2 * 2;
+                if (ox < TEXTURE_SIZE && RANDOM.nextDouble() < 0.7) {
+                    g.fillRect(ox, y, 1, 1);
+                }
             }
         }
         // dark specks
@@ -256,7 +260,9 @@ public final class TextureGenerator {
         fill(g, new Color(178, 142, 88));
         g.setColor(new Color(130, 100, 60));
         for (int y = 3; y < TEXTURE_SIZE; y += 4) {
-            for (int x = 0; x < TEXTURE_SIZE; x++) g.fillRect(x, y, 1, 1);
+            for (int x = 0; x < TEXTURE_SIZE; x++) {
+                g.fillRect(x, y, 1, 1);
+            }
         }
         for (int y = 0; y < TEXTURE_SIZE; y += 4) {
             int breakX = (y / 4 % 2 == 0) ? 7 : 11;
@@ -296,7 +302,9 @@ public final class TextureGenerator {
         g.setColor(c);
         for (int x = 0; x < TEXTURE_SIZE; x++) {
             for (int y = 0; y < TEXTURE_SIZE; y++) {
-                if (RANDOM.nextDouble() < probability) g.fillRect(x, y, 1, 1);
+                if (RANDOM.nextDouble() < probability) {
+                    g.fillRect(x, y, 1, 1);
+                }
             }
         }
     }

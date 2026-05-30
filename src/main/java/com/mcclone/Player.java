@@ -74,7 +74,9 @@ public class Player {
      */
     public void tickPhysics(World world, float dt) {
         vy -= GRAVITY * dt;
-        if (vy < -TERMINAL_VELOCITY) vy = -TERMINAL_VELOCITY;
+        if (vy < -TERMINAL_VELOCITY) {
+            vy = -TERMINAL_VELOCITY;
+        }
         float newY = y + vy * dt;
 
         // The ground we care about is the highest block AT OR BELOW our feet,
@@ -229,7 +231,9 @@ public class Player {
      * is what made stepping off a ledge feel like a hop.</p>
      */
     public void checkAndFixStuckInBlock(World world) {
-        if (!collidesAt(x, y, z, world)) return;
+        if (!collidesAt(x, y, z, world)) {
+            return;
+        }
 
         // Pass 1: tiny horizontal nudges (eight directions, half-block max).
         float[] horiz = {0.1f, 0.2f, 0.3f, 0.5f};
@@ -248,7 +252,8 @@ public class Player {
         }
 
         // Pass 2: push up in small steps, in case we're embedded vertically.
-        for (float dy = 0.25f; dy <= 3.0f; dy += 0.25f) {
+        for (int step = 1; step <= 12; step++) {
+            float dy = step * 0.25f;
             if (!collidesAt(x, y + dy, z, world)) {
                 y += dy;
                 vy = 0;

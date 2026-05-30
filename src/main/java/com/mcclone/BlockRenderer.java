@@ -52,12 +52,24 @@ public final class BlockRenderer {
         boolean drawNegX   = !world.isOpaque(bx - 1, by, bz);
         boolean drawPosX   = !world.isOpaque(bx + 1, by, bz);
 
-        if (drawTop)    drawTop(type);
-        if (drawBottom) drawBottom(type);
-        if (drawPosZ)   drawPosZ(type);
-        if (drawNegZ)   drawNegZ(type);
-        if (drawNegX)   drawNegX(type);
-        if (drawPosX)   drawPosX(type);
+        if (drawTop) {
+            drawTop(type);
+        }
+        if (drawBottom) {
+            drawBottom(type);
+        }
+        if (drawPosZ) {
+            drawPosZ(type);
+        }
+        if (drawNegZ) {
+            drawNegZ(type);
+        }
+        if (drawNegX) {
+            drawNegX(type);
+        }
+        if (drawPosX) {
+            drawPosX(type);
+        }
     }
 
     /**
@@ -152,7 +164,9 @@ public final class BlockRenderer {
      */
     public static void renderOutline() {
         boolean wasLightingEnabled = GL11.glIsEnabled(GL11.GL_LIGHTING);
-        if (wasLightingEnabled) GL11.glDisable(GL11.GL_LIGHTING);
+        if (wasLightingEnabled) {
+            GL11.glDisable(GL11.GL_LIGHTING);
+        }
         TextureLoader.disableTextures();
         GL11.glColor4f(0f, 0f, 0f, 1f);
         GL11.glLineWidth(2.0f);
@@ -181,6 +195,8 @@ public final class BlockRenderer {
 
         GL11.glColor4f(1f, 1f, 1f, 1f);
         TextureLoader.enableTextures();
-        if (wasLightingEnabled) GL11.glEnable(GL11.GL_LIGHTING);
+        if (wasLightingEnabled) {
+            GL11.glEnable(GL11.GL_LIGHTING);
+        }
     }
 }
