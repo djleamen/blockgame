@@ -11,8 +11,10 @@ package com.mcclone;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import org.lwjgl.opengl.GL11;
 
 /**
@@ -65,14 +67,36 @@ public class World {
 
     private static final long DEFAULT_SEED = 0x10C6A47BL;
 
+    /** Horizontal size of a render/meshing chunk in blocks. */
+    private static final int CHUNK_SIZE = 16;
+
+    /** Number of chunks along the world X axis (ceil so any SIZE is covered). */
+    private static final int CHUNKS_X = (SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+    /** Number of chunks along the world Z axis (ceil so any SIZE is covered). */
+    private static final int CHUNKS_Z = (SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
     /** 3D array storing block ids [x][y][z]. */
     private final int[][][] blocks = new int[SIZE][HEIGHT][SIZE];
 
-    /** Pre-built render batches: texture key → packed quad vertex data. */
-    private Map<String, float[]> renderBatches;
+    /**
+     * Per-chunk render batches. Each chunk owns its own {@code texture → packed
+     * quad data} map and its own dirty flag, so a single block edit only forces
+     * the containing chunk (and any bordering neighbour) to be re-meshed instead
+     * of re-scanning the whole world.
+     */
+    private final Chunk[][] chunks = new Chunk[CHUNKS_X][CHUNKS_Z];
 
-    /** True when {@link #renderBatches} is out of date and must be rebuilt. */
-    private boolean dirty = true;
+    /** Union of texture keys across all chunks, refreshed when chunks rebuild. */
+    private final Set<String> textureKeys = new LinkedHashSet<>();
+
+    {
+        for (int cx = 0; cx < CHUNKS_X; cx++) {
+            for (int cz = 0; cz < CHUNKS_Z; cz++) {
+                chunks[cx][cz] = new Chunk(cx, cz);
+            }
+        }
+    }
 
     /**
      * Construct and generate the default world.
@@ -138,7 +162,7 @@ public class World {
                 treeCount--;
             }
         }
-        dirty = true;
+        markAllDirty();
     }
 
     private boolean plantTree(int x, int y, int z) {
@@ -211,34 +235,76 @@ public class World {
      *
      * <p>Faces are grouped by texture into batches. Each batch is a flat
      * {@code float[]} with 5 floats per vertex (u, v, x, y, z) and 4 vertices
-     * per quad. We submit one {@code glBegin/glEnd} per texture.</p>
+     * per quad. Batches are partitioned per chunk; only dirty chunks are
+     * re-meshed before drawing. Each texture is bound once and every chunk's
+     * batch for that texture is emitted inside a single {@code glBegin/glEnd}
+     * pair, keeping the per-frame bind count at ~one per texture.</p>
      */
     public void render() {
-        if (dirty || renderBatches == null) {
-            rebuildBatches();
-            dirty = false;
-        }
+        rebuildDirtyChunks();
         TextureLoader.enableTextures();
         GL11.glColor3f(1.0f, 1.0f, 1.0f);
-        for (Map.Entry<String, float[]> e : renderBatches.entrySet()) {
-            int tex = TextureLoader.getTexture(e.getKey());
+        for (String key : textureKeys) {
+            int tex = TextureLoader.getTexture(key);
             TextureLoader.bindTexture(tex);
-            float[] verts = e.getValue();
             GL11.glBegin(GL11.GL_QUADS);
-            for (int i = 0; i < verts.length; i += 5) {
-                GL11.glTexCoord2f(verts[i], verts[i + 1]);
-                GL11.glVertex3f(verts[i + 2], verts[i + 3], verts[i + 4]);
+            for (int cx = 0; cx < CHUNKS_X; cx++) {
+                for (int cz = 0; cz < CHUNKS_Z; cz++) {
+                    float[] verts = chunks[cx][cz].batches.get(key);
+                    if (verts == null) continue;
+                    for (int i = 0; i < verts.length; i += 5) {
+                        GL11.glTexCoord2f(verts[i], verts[i + 1]);
+                        GL11.glVertex3f(verts[i + 2], verts[i + 3], verts[i + 4]);
+                    }
+                }
             }
             GL11.glEnd();
         }
     }
 
-    private void rebuildBatches() {
+    /**
+     * Re-mesh every chunk whose dirty flag is set, then refresh the union of
+     * texture keys if anything changed.
+     */
+    private void rebuildDirtyChunks() {
+        boolean any = false;
+        for (int cx = 0; cx < CHUNKS_X; cx++) {
+            for (int cz = 0; cz < CHUNKS_Z; cz++) {
+                Chunk c = chunks[cx][cz];
+                if (c.dirty) {
+                    rebuildChunk(c);
+                    c.dirty = false;
+                    any = true;
+                }
+            }
+        }
+        if (any) {
+            textureKeys.clear();
+            for (int cx = 0; cx < CHUNKS_X; cx++) {
+                for (int cz = 0; cz < CHUNKS_Z; cz++) {
+                    textureKeys.addAll(chunks[cx][cz].batches.keySet());
+                }
+            }
+        }
+    }
+
+    /**
+     * Build the texture-grouped face batches for a single chunk. Face culling
+     * still reads neighbouring cells directly from {@link #blocks}, so faces on
+     * a chunk border are correctly hidden/exposed against the adjacent chunk.
+     *
+     * @param c the chunk to re-mesh
+     */
+    private void rebuildChunk(Chunk c) {
         Map<String, FaceList> builders = new HashMap<>();
         float ox = -SIZE / 2f;
-        for (int x = 0; x < SIZE; x++) {
+        int x0 = c.cx * CHUNK_SIZE;
+        int x1 = Math.min(SIZE, x0 + CHUNK_SIZE);
+        int z0 = c.cz * CHUNK_SIZE;
+        int z1 = Math.min(SIZE, z0 + CHUNK_SIZE);
+        for (int x = x0; x < x1; x++) {
             for (int y = 0; y < HEIGHT; y++) {
-                for (int z = 0; z < SIZE; z++) {
+                for (int z = z0; z < z1; z++) {
                     int id = blocks[x][y][z];
                     if (id == BLOCK_TYPE_AIR) continue;
                     BlockType type = BlockType.fromId(id);
@@ -255,10 +321,40 @@ public class World {
                 }
             }
         }
-        renderBatches = new HashMap<>();
+        Map<String, float[]> result = new HashMap<>();
         for (Map.Entry<String, FaceList> e : builders.entrySet()) {
-            renderBatches.put(e.getKey(), e.getValue().toArray());
+            result.put(e.getKey(), e.getValue().toArray());
         }
+        c.batches = result;
+    }
+
+    /** Mark every chunk dirty (used after full-world generation). */
+    private void markAllDirty() {
+        for (int cx = 0; cx < CHUNKS_X; cx++) {
+            for (int cz = 0; cz < CHUNKS_Z; cz++) {
+                chunks[cx][cz].dirty = true;
+            }
+        }
+    }
+
+    /**
+     * Mark the chunk containing world column ({@code x}, {@code z}) dirty, plus
+     * any neighbouring chunk when the column lies on a chunk border (face
+     * culling for the neighbour reads across the boundary).
+     *
+     * @param x world-array X of the edited cell
+     * @param z world-array Z of the edited cell
+     */
+    private void markDirty(int x, int z) {
+        int cx = x / CHUNK_SIZE;
+        int cz = z / CHUNK_SIZE;
+        chunks[cx][cz].dirty = true;
+        int lx = x % CHUNK_SIZE;
+        int lz = z % CHUNK_SIZE;
+        if (lx == 0 && cx > 0) chunks[cx - 1][cz].dirty = true;
+        if (lx == CHUNK_SIZE - 1 && cx < CHUNKS_X - 1) chunks[cx + 1][cz].dirty = true;
+        if (lz == 0 && cz > 0) chunks[cx][cz - 1].dirty = true;
+        if (lz == CHUNK_SIZE - 1 && cz < CHUNKS_Z - 1) chunks[cx][cz + 1].dirty = true;
     }
 
     private static void addFace(Map<String, FaceList> builders, BlockType type, int face,
@@ -403,7 +499,7 @@ public class World {
                 }
             }
 
-            dirty = true;
+            markDirty(x, z);
         }
     }
 
@@ -428,6 +524,22 @@ public class World {
         if (y < 0) return true;
         if (!inBounds(x, y, z)) return false;
         return BlockType.fromId(blocks[x][y][z]).isOpaque();
+    }
+
+    /**
+     * A 16×16 column of the world (full height) holding its own render batches
+     * and dirty flag. Re-meshing is scoped to one chunk at a time.
+     */
+    private static final class Chunk {
+        final int cx;
+        final int cz;
+        Map<String, float[]> batches = new HashMap<>();
+        boolean dirty = true;
+
+        Chunk(int cx, int cz) {
+            this.cx = cx;
+            this.cz = cz;
+        }
     }
 
     /**
