@@ -41,6 +41,15 @@ public class Player {
     /** Jump initial vertical velocity in blocks/s (~1.25 block jump). */
     public static final float JUMP_VELOCITY = 8.4f;
 
+    /** Player collision box width (X and Z) in blocks. */
+    private static final float PLAYER_WIDTH = 0.6f;
+
+    /** Player collision box height in blocks. */
+    private static final float PLAYER_HEIGHT = 1.8f;
+
+    /** Small tolerance used to keep flush contacts from registering as overlaps. */
+    private static final float COLLISION_EPSILON = 0.001f;
+
     private float x;
     private float y;
     private float z;
@@ -76,6 +85,25 @@ public class Player {
         vy -= GRAVITY * dt;
         if (vy < -TERMINAL_VELOCITY) vy = -TERMINAL_VELOCITY;
         float newY = y + vy * dt;
+
+        if (vy > 0) {
+            // Rising: stop at a ceiling so hitting our head on the block(s)
+            // above doesn't shove us up through them. Without this the player
+            // ends the tick embedded in the block and the anti-stuck pass
+            // "rescues" them by teleporting to the top of the stack.
+            float feetNew = newY - EYE;
+            float headNew = feetNew + PLAYER_HEIGHT;
+            int ceiling = lowestCeilingBlock(x, z, feetNew, headNew, world);
+            if (ceiling != Integer.MAX_VALUE) {
+                // Place the head flush against the bottom of the ceiling block.
+                y = ceiling - PLAYER_HEIGHT + EYE;
+                vy = 0;
+            } else {
+                y = newY;
+            }
+            grounded = false;
+            return;
+        }
 
         // The ground we care about is the highest block AT OR BELOW our feet,
         // not the highest block in the whole column. Otherwise the moment you
@@ -162,9 +190,9 @@ public class Player {
 
     private boolean collidesAt(float testX, float testY, float testZ, World world) {
         // Standard Minecraft AABB: 0.6 wide × 1.8 tall, eyes at 1.62.
-        final float playerWidth = 0.6f;
-        final float playerHeight = 1.8f;
-        final float epsilon = 0.001f;
+        final float playerWidth = PLAYER_WIDTH;
+        final float playerHeight = PLAYER_HEIGHT;
+        final float epsilon = COLLISION_EPSILON;
 
         float minX = testX - playerWidth / 2;
         float maxX = testX + playerWidth / 2;
@@ -190,6 +218,41 @@ public class Player {
             }
         }
         return false;
+    }
+
+    /**
+     * Find the bottom Y of the lowest solid block that the player's AABB
+     * (spanning {@code minY}..{@code maxY} vertically, centred on {@code testX}
+     * / {@code testZ}) would intersect. Used by {@link #tickPhysics} to stop a
+     * rising player flush against a ceiling.
+     *
+     * @return the block-space Y (bottom) of the lowest blocking cell, or
+     *         {@link Integer#MAX_VALUE} if the head path is clear
+     */
+    private int lowestCeilingBlock(float testX, float testZ, float minY, float maxY, World world) {
+        float minX = testX - PLAYER_WIDTH / 2;
+        float maxX = testX + PLAYER_WIDTH / 2;
+        float minZ = testZ - PLAYER_WIDTH / 2;
+        float maxZ = testZ + PLAYER_WIDTH / 2;
+
+        int minBlockX = (int) Math.floor(minX + World.SIZE / 2f);
+        int maxBlockX = (int) Math.floor(maxX + World.SIZE / 2f);
+        int minBlockZ = (int) Math.floor(-maxZ);
+        int maxBlockZ = (int) Math.floor(-minZ);
+        int minBlockY = (int) Math.floor(minY + COLLISION_EPSILON);
+        int maxBlockY = (int) Math.floor(maxY - COLLISION_EPSILON);
+
+        int found = Integer.MAX_VALUE;
+        for (int bx = minBlockX; bx <= maxBlockX; bx++) {
+            for (int bz = minBlockZ; bz <= maxBlockZ; bz++) {
+                for (int by = minBlockY; by <= maxBlockY; by++) {
+                    if (world.hasBlock(bx, by, bz) && maxY > by && minY < by + 1.0f) {
+                        if (by < found) found = by;
+                    }
+                }
+            }
+        }
+        return found;
     }
 
     private boolean collidesWithBlock(int bx, int by, int bz, float minY, float maxY, World world) {
