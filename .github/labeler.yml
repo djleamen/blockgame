@@ -1,0 +1,15 @@
+# Configuration for the Labeler workflow (.github/workflows/label.yml)
+# Applies labels to pull requests based on changed paths.
+
+java:
+  - 'src/**/*.java'
+
+build:
+  - 'pom.xml'
+  - 'dependency-reduced-pom.xml'
+
+ci:
+  - '.github/workflows/**'
+
+documentation:
+  - '**/*.md'
