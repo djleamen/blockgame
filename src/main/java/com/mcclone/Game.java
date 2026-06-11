@@ -450,14 +450,37 @@ public class Game {
                 world.setBlock(highlightedBlock[0], highlightedBlock[1], highlightedBlock[2], BlockType.AIR);
                 lastBreakTime = now;
             }
-            if (isMouseDown(GLFW_MOUSE_BUTTON_RIGHT) && (now - lastPlaceTime > COOLDOWN)) {
+            // Right-click places blocks; Enter remains as a fallback.
+            boolean placeHeld = isMouseDown(GLFW_MOUSE_BUTTON_RIGHT) || isKeyDown(GLFW_KEY_ENTER);
+            if (placeHeld && (now - lastPlaceTime > COOLDOWN)) {
                 int[] placePos = getPlacePosition(highlightedBlock);
-                if (placePos != null) {
+                if (placePos != null && !intersectsPlayer(placePos[0], placePos[1], placePos[2])) {
                     world.setBlock(placePos[0], placePos[1], placePos[2], hotbar.getSelectedItem());
                     lastPlaceTime = now;
                 }
             }
         }
+    }
+
+    /**
+     * Check whether the block cell at the given block-array coordinates
+     * overlaps the player's bounding box (0.6 wide × 1.8 tall, eyes at 1.62).
+     * Used to refuse placements that would trap the player inside a block.
+     *
+     * @param bx block-array X
+     * @param by block-array Y
+     * @param bz block-array Z
+     * @return true if the cell intersects the player's AABB
+     */
+    private boolean intersectsPlayer(int bx, int by, int bz) {
+        // Block cell world-space extents (see World: glX = x - SIZE/2, glZ = -z,
+        // a block spans wz..wz-1 along Z).
+        float blockMinX = bx - World.SIZE / 2f;
+        float blockMaxZ = -bz;
+        float playerMinY = player.getY() - Player.getEYE();
+        return blockMinX + 1 > player.getX() - 0.3f && blockMinX < player.getX() + 0.3f
+                && by + 1 > playerMinY && by < playerMinY + 1.8f
+                && blockMaxZ > player.getZ() - 0.3f && blockMaxZ - 1 < player.getZ() + 0.3f;
     }
 
     private int[] getPlacePosition(int[] blockAndFace) {
