@@ -23,24 +23,33 @@ This project is a super basic 3D block game with heavy inspiration taken from ea
   - Anti-stuck system (automatically frees player if trapped inside blocks)
 
 - **Block System**
-  - 9 block types: Grass, Dirt, Cobblestone, Stone, Sand, Bedrock, Oak Log, Oak Planks, Oak Leaves
+  - 13 block types: Grass, Dirt, Cobblestone, Stone, Sand, Bedrock, Oak Log, Oak Planks, Oak Leaves, Water, Gravel, Coal Ore, Iron Ore
   - Realistic grass-to-dirt conversion (grass becomes dirt when covered, dirt becomes grass when exposed)
+  - Still water fills terrain to sea level and renders translucent
   - Procedurally generated 16×16 textures built in memory at startup — no PNGs required
   - Per-face culling: only faces exposed to air are drawn
   - Bedrock is unbreakable
 
 - **Hotbar & Inventory**
-  - 9-slot hotbar system
+  - Survival-style collection: breaking a block adds its drop to your hotbar
+    (stone drops cobblestone, grass drops dirt, leaves drop nothing)
+  - Stacks up to 64 per slot with on-screen counts; placing consumes from the stack
+  - 27-slot inventory storage — press **E** to open, click to move stacks
+    between storage and the hotbar
   - Mouse scroll wheel or number keys (1-9) for block selection
-  - Visual hotbar UI with block icons
   - Only place blocks when holding them (empty hand can't place blocks)
 
 - **World Generation**
   - 64×64 world, up to 64 blocks tall
-  - Value-noise heightmap terrain with hills and beaches
+  - Value-noise heightmap terrain with hills, beaches and still-water seas
   - Bedrock floor, stone fill, dirt crust, grass/sand surface
+  - Gravel patches on beaches, coal and iron ore veins in the stone layer
   - Small oak trees scattered across grass tiles
   - Deterministic seed so the world looks the same every launch
+
+- **Day/Night & Persistence**
+  - 10-minute day/night cycle — sky colour, fog and world brightness follow the clock
+  - World autosaves to `world.bgsave` every 60 seconds and on exit, and resumes on launch
 
 - **User Interface**
   - Crosshair for precise block targeting
@@ -71,18 +80,13 @@ This project is a super basic 3D block game with heavy inspiration taken from ea
 - **Right Click** (or **Enter**): Place selected block
 - **Mouse Scroll**: Change hotbar selection
 - **Number Keys (1-9)**: Select hotbar slot directly
+- **E**: Open/close the inventory screen (click to move stacks)
 
-### Hotbar
+### Inventory
 
-- **Slot 1**: Grass
-- **Slot 2**: Dirt
-- **Slot 3**: Cobblestone
-- **Slot 4**: Stone
-- **Slot 5**: Sand
-- **Slot 6**: Oak log
-- **Slot 7**: Oak planks
-- **Slot 8**: Oak leaves
-- **Slot 9**: Empty
+The hotbar starts empty — break blocks to collect them. When the hotbar
+fills up, further pickups overflow into the 27-slot storage. Press **E**
+and click a slot to pick up a stack, click again to place, merge or swap it.
 
 ## Setup Instructions
 

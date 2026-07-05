@@ -68,6 +68,10 @@ public final class TextureGenerator {
         out.put("log_oak_side", logOakSide());
         out.put("planks_oak", planksOak());
         out.put("leaves_oak", leavesOak());
+        out.put("water", water());
+        out.put("gravel", gravel());
+        out.put("coal_ore", ore(new Color(46, 46, 46), new Color(20, 20, 20)));
+        out.put("iron_ore", ore(new Color(216, 175, 147), new Color(175, 130, 96)));
         return out;
     }
 
@@ -277,6 +281,51 @@ public final class TextureGenerator {
         speckle(g, new Color(40, 90, 28), 0.45);
         speckle(g, new Color(75, 135, 52), 0.20);
         speckle(g, new Color(28, 70, 22), 0.10);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage water() {
+        BufferedImage img = newImage();
+        Graphics2D g = img.createGraphics();
+        fill(g, new Color(53, 96, 200, 172));
+        speckle(g, new Color(63, 118, 228, 172), 0.30);
+        speckle(g, new Color(43, 80, 176, 172), 0.20);
+        speckle(g, new Color(90, 140, 235, 180), 0.06);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage gravel() {
+        BufferedImage img = newImage();
+        Graphics2D g = img.createGraphics();
+        fill(g, new Color(131, 127, 126));
+        speckle(g, new Color(110, 105, 103), 0.35);
+        speckle(g, new Color(150, 146, 144), 0.25);
+        speckle(g, new Color(88, 84, 82), 0.12);
+        speckle(g, new Color(170, 166, 164), 0.06);
+        g.dispose();
+        return img;
+    }
+
+    /**
+     * Stone base with 2×2 flecks of the given ore colours — shared by coal
+     * and iron ore.
+     */
+    private static BufferedImage ore(Color fleck, Color fleckDark) {
+        BufferedImage img = newImage();
+        Graphics2D g = img.createGraphics();
+        fill(g, new Color(125, 125, 125));
+        speckle(g, new Color(110, 110, 110), 0.45);
+        speckle(g, new Color(140, 140, 140), 0.20);
+        for (int i = 0; i < 5; i++) {
+            int fx = RANDOM.nextInt(TEXTURE_SIZE - 2);
+            int fy = RANDOM.nextInt(TEXTURE_SIZE - 2);
+            g.setColor(fleck);
+            g.fillRect(fx, fy, 2, 2);
+            g.setColor(fleckDark);
+            g.fillRect(fx + RANDOM.nextInt(2), fy + RANDOM.nextInt(2), 1, 1);
+        }
         g.dispose();
         return img;
     }

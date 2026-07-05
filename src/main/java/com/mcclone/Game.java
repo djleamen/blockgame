@@ -38,6 +38,9 @@ public class Game {
     /** Hotbar UI / inventory. */
     private final Hotbar hotbar = new Hotbar();
 
+    /** Day/night clock driving sky colour, fog and world brightness. */
+    private final DayNightCycle dayNight = new DayNightCycle();
+
     /** Time of the last successful break action. */
     private double lastBreakTime = 0;
 
@@ -71,6 +74,9 @@ public class Game {
     /** True after the player clicks into the window and the cursor is captured. */
     private boolean cursorCaptured;
 
+    /** True while the E inventory screen is open (cursor freed, input paused). */
+    private boolean inventoryOpen;
+
     /** True after the first rendered frame diagnostic has been printed. */
     private boolean firstFrameLogged;
 
@@ -85,6 +91,12 @@ public class Game {
 
     /** Mouse movement accumulated by GLFW cursor callbacks between frames. */
     private double queuedMouseDY;
+
+    /** Seconds between autosaves. */
+    private static final double AUTOSAVE_INTERVAL = 60.0;
+
+    /** Time of the last autosave (game clock). */
+    private double lastAutosaveTime;
 
     /**
      * Create the game and initialise GLFW/OpenGL.
@@ -138,6 +150,13 @@ public class Game {
         glEnable(GL_DEPTH_TEST);
         glClearColor(0.55f, 0.8f, 1.0f, 1);
 
+        // Distance fog — colour is synced to the sky every frame so terrain
+        // fades into the horizon instead of ending at a hard edge.
+        glEnable(GL_FOG);
+        glFogi(GL_FOG_MODE, GL_LINEAR);
+        glFogf(GL_FOG_START, 40f);
+        glFogf(GL_FOG_END, 90f);
+
         glfwSetScrollCallback(window, (win, xoffset, yoffset) -> hotbar.scrollSelection((int) -yoffset));
 
         Map<String, BufferedImage> textures = TextureGenerator.generateAll();
@@ -150,6 +169,12 @@ public class Game {
         float spawnZ = -2f;
         float spawnY = world.groundHeight(spawnX, spawnZ) + Player.getEYE();
         player = new Player(spawnX, spawnY, spawnZ);
+
+        // Resume from an existing save if one is present; otherwise keep the
+        // freshly generated world. (Restores blocks, player pose and hotbar.)
+        if (WorldSave.load(WorldSave.DEFAULT_FILE, world, player, hotbar, dayNight)) {
+            logger.info("Resumed world from {}", WorldSave.DEFAULT_FILE);
+        }
 
         glfwSetWindowFocusCallback(window, (win, focused) -> {
             if (!focused) {
@@ -173,7 +198,9 @@ public class Game {
             }
             if (action == GLFW_PRESS) {
                 if (key == GLFW_KEY_ESCAPE) {
-                    if (cursorCaptured) {
+                    if (inventoryOpen) {
+                        closeInventory();
+                    } else if (cursorCaptured) {
                         releaseCursor();
                     } else {
                         glfwSetWindowShouldClose(window, true);
@@ -191,7 +218,7 @@ public class Game {
                 }
             }
             if (action == GLFW_PRESS) {
-                if (!cursorCaptured) {
+                if (!cursorCaptured && !inventoryOpen) {
                     captureCursor();
                 }
             }
@@ -245,6 +272,39 @@ public class Game {
         queuedMouseDX = 0;
         queuedMouseDY = 0;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+
+    /** Open the inventory screen: free the cursor and pause world input. */
+    private void openInventory() {
+        inventoryOpen = true;
+        releaseCursor();
+    }
+
+    /** Close the inventory screen and recapture the mouse for camera look. */
+    private void closeInventory() {
+        inventoryOpen = false;
+        hotbar.returnHeldStack();
+        captureCursor();
+    }
+
+    /**
+     * @return the cursor position converted to framebuffer pixels (the UI is
+     *         rendered in framebuffer coordinates, which differ from window
+     *         coordinates on HiDPI/Retina displays)
+     */
+    private float[] cursorInFramebuffer() {
+        double[] cx = new double[1];
+        double[] cy = new double[1];
+        glfwGetCursorPos(window, cx, cy);
+        int[] ww = new int[1];
+        int[] wh = new int[1];
+        glfwGetWindowSize(window, ww, wh);
+        int[] fw = new int[1];
+        int[] fh = new int[1];
+        glfwGetFramebufferSize(window, fw, fh);
+        float sx = ww[0] > 0 ? (float) fw[0] / ww[0] : 1f;
+        float sy = wh[0] > 0 ? (float) fh[0] / wh[0] : 1f;
+        return new float[]{(float) cx[0] * sx, (float) cy[0] * sy};
     }
 
     private void updateViewportAndPerspective() {
@@ -317,6 +377,7 @@ public class Game {
     /** Run the main loop until the window closes. */
     public void run() {
         double last = glfwGetTime();
+        lastAutosaveTime = last;
 
         while (!glfwWindowShouldClose(window)) {
             double now = glfwGetTime();
@@ -326,11 +387,21 @@ public class Game {
             handleInput(dt);
             player.tickPhysics(world, dt);
             player.checkAndFixStuckInBlock(world);
+            dayNight.advance(dt);
+
+            if (now - lastAutosaveTime >= AUTOSAVE_INTERVAL) {
+                WorldSave.save(WorldSave.DEFAULT_FILE, world, player, hotbar, dayNight);
+                lastAutosaveTime = now;
+            }
+
+            float[] sky = dayNight.skyColor();
+            glClearColor(sky[0], sky[1], sky[2], 1f);
+            glFogfv(GL_FOG_COLOR, new float[]{sky[0], sky[1], sky[2], 1f});
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glLoadIdentity();
             player.applyCamera();
-            world.render();
+            world.render(dayNight.brightness());
 
             if (highlightedBlock != null) {
                 int bx = highlightedBlock[0];
@@ -347,11 +418,19 @@ public class Game {
             int[] w = new int[1];
             int[] h = new int[1];
             glfwGetFramebufferSize(window, w, h);
-            hotbar.render(w[0], h[0]);
+            if (inventoryOpen) {
+                float[] cursor = cursorInFramebuffer();
+                hotbar.renderInventoryScreen(w[0], h[0], cursor[0], cursor[1]);
+            } else {
+                hotbar.render(w[0], h[0]);
+            }
 
             glfwSwapBuffers(window);
             glfwPollEvents();
         }
+
+        // Clean shutdown: persist the world before tearing the context down.
+        WorldSave.save(WorldSave.DEFAULT_FILE, world, player, hotbar, dayNight);
 
         TextureLoader.cleanup();
         glfwTerminate();
@@ -359,6 +438,28 @@ public class Game {
 
     private void handleInput(float dt) {
         updateInputStates();
+
+        // E toggles the inventory screen. While it is open the cursor is free
+        // and all world input (look, move, break/place) is paused.
+        if (wasKeyJustPressed(GLFW_KEY_E)) {
+            if (inventoryOpen) {
+                closeInventory();
+            } else {
+                openInventory();
+            }
+        }
+        if (inventoryOpen) {
+            queuedMouseDX = 0;
+            queuedMouseDY = 0;
+            if (wasMouseJustPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+                float[] cursor = cursorInFramebuffer();
+                int[] fw = new int[1];
+                int[] fh = new int[1];
+                glfwGetFramebufferSize(window, fw, fh);
+                hotbar.handleInventoryClick(cursor[0], cursor[1], fw[0], fh[0]);
+            }
+            return;
+        }
 
         float baseSpeed = Player.WALK_SPEED;
         if (isKeyDown(GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW_KEY_RIGHT_CONTROL)) baseSpeed *= Player.SPRINT_MULT;
@@ -447,15 +548,21 @@ public class Game {
 
         if (highlightedBlock != null) {
             if (isMouseDown(GLFW_MOUSE_BUTTON_LEFT) && (now - lastBreakTime > COOLDOWN)) {
-                world.setBlock(highlightedBlock[0], highlightedBlock[1], highlightedBlock[2], BlockType.AIR);
-                lastBreakTime = now;
+                BlockType broken = world.blockAt(highlightedBlock[0], highlightedBlock[1], highlightedBlock[2]);
+                if (broken != BlockType.BEDROCK && broken != BlockType.AIR) {
+                    world.setBlock(highlightedBlock[0], highlightedBlock[1], highlightedBlock[2], BlockType.AIR);
+                    hotbar.addItem(broken.dropType());
+                    lastBreakTime = now;
+                }
             }
             // Right-click places blocks; Enter remains as a fallback.
             boolean placeHeld = isMouseDown(GLFW_MOUSE_BUTTON_RIGHT) || isKeyDown(GLFW_KEY_ENTER);
-            if (placeHeld && (now - lastPlaceTime > COOLDOWN)) {
+            if (placeHeld && hotbar.hasSelectedItem() && (now - lastPlaceTime > COOLDOWN)) {
                 int[] placePos = getPlacePosition(highlightedBlock);
-                if (placePos != null && !intersectsPlayer(placePos[0], placePos[1], placePos[2])) {
+                if (placePos != null && !intersectsPlayer(placePos[0], placePos[1], placePos[2])
+                        && !world.isSolid(placePos[0], placePos[1], placePos[2])) {
                     world.setBlock(placePos[0], placePos[1], placePos[2], hotbar.getSelectedItem());
+                    hotbar.consumeSelected();
                     lastPlaceTime = now;
                 }
             }
@@ -548,7 +655,7 @@ public class Game {
         int iterations = 0;
 
         while (t <= maxDistance && iterations++ < maxIterations) {
-            if (world.hasBlock(bx, by, bz)) {
+            if (world.isSolid(bx, by, bz)) {
                 return new int[]{bx, by, bz, face};
             }
 

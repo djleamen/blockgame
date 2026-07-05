@@ -84,38 +84,27 @@ public class Player {
     public void tickPhysics(World world, float dt) {
         vy -= GRAVITY * dt;
         if (vy < -TERMINAL_VELOCITY) vy = -TERMINAL_VELOCITY;
-        float newY = y + vy * dt;
 
-        if (vy > 0) {
-            // Rising: stop at a ceiling so hitting our head on the block(s)
-            // above doesn't shove us up through them. Without this the player
-            // ends the tick embedded in the block and the anti-stuck pass
-            // "rescues" them by teleporting to the top of the stack.
-            float feetNew = newY - EYE;
-            float headNew = feetNew + PLAYER_HEIGHT;
-            int ceiling = lowestCeilingBlock(x, z, feetNew, headNew, world);
-            if (ceiling != Integer.MAX_VALUE) {
-                // Place the head flush against the bottom of the ceiling block.
-                y = ceiling - PLAYER_HEIGHT + EYE;
-                vy = 0;
-            } else {
-                y = newY;
-            }
-            grounded = false;
-            return;
-        }
+        // Minecraft-style vertical collision: sweep the player's full AABB
+        // along Y and clip the motion against every solid block it would
+        // touch (see mcpk.wiki/wiki/Collisions — Y is resolved first, and
+        // "on ground" means "collided while moving down"). The old code only
+        // tested the single column under the player's centre, which made you
+        // fall off blocks whose edge you were standing on and caused jitter
+        // and anti-stuck teleports near ledges and ceilings.
+        float dy = vy * dt;
+        float allowed = clipVerticalMovement(world, dy);
+        y += allowed;
 
-        // The ground we care about is the highest block AT OR BELOW our feet,
-        // not the highest block in the whole column. Otherwise the moment you
-        // walk under a tree, gravity would "snap" you up to the leaves above.
-        float feetY = y - EYE;
-        float ground = world.groundHeightBelow(x, feetY + 0.001f, z);
-        if (ground != Float.NEGATIVE_INFINITY && vy <= 0 && newY - EYE <= ground) {
-            y = ground + EYE;
+        if (dy < 0 && allowed > dy) {
+            // Hit the ground part-way through the fall.
             vy = 0;
             grounded = true;
+        } else if (dy > 0 && allowed < dy) {
+            // Bonked a ceiling.
+            vy = 0;
+            grounded = false;
         } else {
-            y = newY;
             grounded = false;
         }
 
@@ -130,6 +119,58 @@ public class Player {
             vy = 0;
             grounded = true;
         }
+    }
+
+    /**
+     * Clip a vertical displacement {@code dy} against every solid block the
+     * player's AABB would sweep through, mirroring vanilla's
+     * {@code Box.calculateYOffset}: each candidate block reduces the allowed
+     * offset so the box ends flush with the obstruction.
+     *
+     * @param world the world to collide against
+     * @param dy    the desired Y displacement this tick (may be 0)
+     * @return the largest-magnitude displacement ≤ {@code |dy|} that does not
+     *         intersect any solid block
+     */
+    private float clipVerticalMovement(World world, float dy) {
+        if (dy == 0) return 0;
+
+        float minX = x - PLAYER_WIDTH / 2;
+        float maxX = x + PLAYER_WIDTH / 2;
+        float minZ = z - PLAYER_WIDTH / 2;
+        float maxZ = z + PLAYER_WIDTH / 2;
+        float feet = y - EYE;
+        float head = feet + PLAYER_HEIGHT;
+
+        int minBlockX = (int) Math.floor(minX + World.SIZE / 2f + COLLISION_EPSILON);
+        int maxBlockX = (int) Math.floor(maxX + World.SIZE / 2f - COLLISION_EPSILON);
+        int minBlockZ = (int) Math.floor(-maxZ + COLLISION_EPSILON);
+        int maxBlockZ = (int) Math.floor(-minZ - COLLISION_EPSILON);
+
+        // Vertical range the sweep can touch.
+        float sweptMin = Math.min(feet, feet + dy);
+        float sweptMax = Math.max(head, head + dy);
+        int minBlockY = Math.max(0, (int) Math.floor(sweptMin - 1));
+        int maxBlockY = Math.min(World.HEIGHT - 1, (int) Math.floor(sweptMax + 1));
+
+        float allowed = dy;
+        for (int bx = minBlockX; bx <= maxBlockX; bx++) {
+            for (int bz = minBlockZ; bz <= maxBlockZ; bz++) {
+                for (int by = minBlockY; by <= maxBlockY; by++) {
+                    if (!world.isSolid(bx, by, bz)) continue;
+                    float blockTop = by + 1f;
+                    float blockBottom = by;
+                    if (allowed < 0 && head > blockBottom && feet >= blockTop - COLLISION_EPSILON) {
+                        // Falling: can't pass below this block's top.
+                        allowed = Math.max(allowed, blockTop - feet);
+                    } else if (allowed > 0 && feet < blockTop && head <= blockBottom + COLLISION_EPSILON) {
+                        // Rising: can't pass above this block's bottom.
+                        allowed = Math.min(allowed, blockBottom - head);
+                    }
+                }
+            }
+        }
+        return allowed;
     }
 
     /** Backwards-compatible fixed-timestep tick used by older callers/tests. */
@@ -174,18 +215,79 @@ public class Player {
         float finalDX = moveX * step;
         float finalDZ = moveZ * step;
 
-        // Use AABB collision directly per axis so the player slides along
-        // walls. We deliberately do NOT consult groundHeight() here: it would
-        // refuse to walk under low ceilings (since the "ground" of a column
-        // with a block overhead is the top of that overhead block).
-        float tryX = x + finalDX;
-        if (!collidesAt(tryX, y, z, world)) {
-            x = tryX;
+        // Vanilla order: Y is resolved in tickPhysics, then X, then Z. Each
+        // axis is clipped independently against the AABB so the player slides
+        // along walls instead of sticking to them.
+        x += clipHorizontalMovement(world, finalDX, true);
+        z += clipHorizontalMovement(world, finalDZ, false);
+    }
+
+    /**
+     * Clip a horizontal displacement against solid blocks, sweeping the
+     * player's AABB along one axis (vanilla's {@code calculateXOffset} /
+     * {@code calculateZOffset}). Unlike a boolean "can I stand there" test,
+     * clipping lets the player advance right up to the wall instead of
+     * stopping a partial step away from it.
+     *
+     * @param world  world to collide against
+     * @param d      desired displacement along the axis
+     * @param xAxis  true to move along world X, false for world Z
+     * @return the allowed displacement ≤ {@code |d|}
+     */
+    private float clipHorizontalMovement(World world, float d, boolean xAxis) {
+        if (d == 0) return 0;
+
+        float minX = x - PLAYER_WIDTH / 2;
+        float maxX = x + PLAYER_WIDTH / 2;
+        float minZ = z - PLAYER_WIDTH / 2;
+        float maxZ = z + PLAYER_WIDTH / 2;
+        float feet = y - EYE;
+        float head = feet + PLAYER_HEIGHT;
+
+        float sweptMinX = xAxis ? Math.min(minX, minX + d) : minX;
+        float sweptMaxX = xAxis ? Math.max(maxX, maxX + d) : maxX;
+        float sweptMinZ = xAxis ? minZ : Math.min(minZ, minZ + d);
+        float sweptMaxZ = xAxis ? maxZ : Math.max(maxZ, maxZ + d);
+
+        int minBlockX = (int) Math.floor(sweptMinX + World.SIZE / 2f);
+        int maxBlockX = (int) Math.floor(sweptMaxX + World.SIZE / 2f);
+        int minBlockZ = (int) Math.floor(-sweptMaxZ);
+        int maxBlockZ = (int) Math.floor(-sweptMinZ);
+        int minBlockY = Math.max(0, (int) Math.floor(feet + COLLISION_EPSILON));
+        int maxBlockY = Math.min(World.HEIGHT - 1, (int) Math.floor(head - COLLISION_EPSILON));
+
+        float allowed = d;
+        for (int bx = minBlockX; bx <= maxBlockX; bx++) {
+            for (int bz = minBlockZ; bz <= maxBlockZ; bz++) {
+                for (int by = minBlockY; by <= maxBlockY; by++) {
+                    if (!world.isSolid(bx, by, bz)) continue;
+                    // Block extents in world space.
+                    float blockMinX = bx - World.SIZE / 2f;
+                    float blockMaxX = blockMinX + 1f;
+                    float blockMaxZ = -bz;
+                    float blockMinZ = blockMaxZ - 1f;
+
+                    if (xAxis) {
+                        // Must overlap on Z to block X movement.
+                        if (maxZ <= blockMinZ + COLLISION_EPSILON || minZ >= blockMaxZ - COLLISION_EPSILON) continue;
+                        if (allowed > 0 && maxX <= blockMinX + COLLISION_EPSILON) {
+                            allowed = Math.min(allowed, blockMinX - maxX);
+                        } else if (allowed < 0 && minX >= blockMaxX - COLLISION_EPSILON) {
+                            allowed = Math.max(allowed, blockMaxX - minX);
+                        }
+                    } else {
+                        // Must overlap on X to block Z movement.
+                        if (maxX <= blockMinX + COLLISION_EPSILON || minX >= blockMaxX - COLLISION_EPSILON) continue;
+                        if (allowed > 0 && maxZ <= blockMinZ + COLLISION_EPSILON) {
+                            allowed = Math.min(allowed, blockMinZ - maxZ);
+                        } else if (allowed < 0 && minZ >= blockMaxZ - COLLISION_EPSILON) {
+                            allowed = Math.max(allowed, blockMaxZ - minZ);
+                        }
+                    }
+                }
+            }
         }
-        float tryZ = z + finalDZ;
-        if (!collidesAt(x, y, tryZ, world)) {
-            z = tryZ;
-        }
+        return allowed;
     }
 
     private boolean collidesAt(float testX, float testY, float testZ, World world) {
@@ -220,43 +322,8 @@ public class Player {
         return false;
     }
 
-    /**
-     * Find the bottom Y of the lowest solid block that the player's AABB
-     * (spanning {@code minY}..{@code maxY} vertically, centred on {@code testX}
-     * / {@code testZ}) would intersect. Used by {@link #tickPhysics} to stop a
-     * rising player flush against a ceiling.
-     *
-     * @return the block-space Y (bottom) of the lowest blocking cell, or
-     *         {@link Integer#MAX_VALUE} if the head path is clear
-     */
-    private int lowestCeilingBlock(float testX, float testZ, float minY, float maxY, World world) {
-        float minX = testX - PLAYER_WIDTH / 2;
-        float maxX = testX + PLAYER_WIDTH / 2;
-        float minZ = testZ - PLAYER_WIDTH / 2;
-        float maxZ = testZ + PLAYER_WIDTH / 2;
-
-        int minBlockX = (int) Math.floor(minX + World.SIZE / 2f);
-        int maxBlockX = (int) Math.floor(maxX + World.SIZE / 2f);
-        int minBlockZ = (int) Math.floor(-maxZ);
-        int maxBlockZ = (int) Math.floor(-minZ);
-        int minBlockY = (int) Math.floor(minY + COLLISION_EPSILON);
-        int maxBlockY = (int) Math.floor(maxY - COLLISION_EPSILON);
-
-        int found = Integer.MAX_VALUE;
-        for (int bx = minBlockX; bx <= maxBlockX; bx++) {
-            for (int bz = minBlockZ; bz <= maxBlockZ; bz++) {
-                for (int by = minBlockY; by <= maxBlockY; by++) {
-                    if (world.hasBlock(bx, by, bz) && maxY > by && minY < by + 1.0f) {
-                        if (by < found) found = by;
-                    }
-                }
-            }
-        }
-        return found;
-    }
-
     private boolean collidesWithBlock(int bx, int by, int bz, float minY, float maxY, World world) {
-        if (world.hasBlock(bx, by, bz)) {
+        if (world.isSolid(bx, by, bz)) {
             float blockMinY = by;
             float blockMaxY = by + 1.0f;
             if (maxY > blockMinY && minY < blockMaxY) {
@@ -344,6 +411,24 @@ public class Player {
     public float getZ() { return z; }
     public float getPitch() { return pitch; }
     public float getYaw() { return yaw; }
+
+    /**
+     * Restore a saved pose (used by {@link WorldSave}).
+     *
+     * @param x     world X
+     * @param y     world Y (eye level)
+     * @param z     world Z
+     * @param pitch view pitch in degrees
+     * @param yaw   view yaw in degrees
+     */
+    public void setPose(float x, float y, float z, float pitch, float yaw) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.pitch = Math.max(-89, Math.min(89, pitch));
+        this.yaw = yaw;
+        this.vy = 0;
+    }
 
     public float[] getEyePosition() {
         return new float[]{x, y, z};

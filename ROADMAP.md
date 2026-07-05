@@ -6,7 +6,7 @@ can land as one or two PRs and maps to existing GitHub issues where possible.
 
 Status legend: `done` · `in progress` · `planned`
 
-## Phase 1 — Minecraft-alignment basics (in progress)
+## Phase 1 — Minecraft-alignment basics (done)
 
 Goal: the world looks and feels like Minecraft within the current
 fixed-size architecture. No new threading, still immediate-mode OpenGL.
@@ -39,35 +39,42 @@ Closes / advances: #1, #3 (partial), #8 (partial)
 - Block outline: a thin wireframe is drawn around whichever block the
   crosshair is currently pointing at.
 
-## Phase 2 — World & survival feel
+## Phase 2 — World & survival feel (in progress)
 
 Closes / advances: #3, #4, #1 (rest of the palette)
 
 - Chunk container (16×16×worldHeight) so the renderer/world generator
-  stop assuming a single fixed array.
+  stop assuming a single fixed array. `done` for render meshing; world
+  storage is still one dense array.
 - World height to 128 (still finite, just taller).
-- More blocks: water (non-flowing for now), gravel, coal/iron ore.
-- Inventory: pick up broken blocks into a 27-slot inventory + 9 hotbar,
-  press `E` to open.
+- More blocks: water (non-flowing for now), gravel, coal/iron ore. `done` —
+  still water fills to sea level and renders translucent, gravel patches
+  on beaches, coal/iron veins seeded in the stone layer.
+- Inventory: pick up broken blocks into the hotbar with stack counts;
+  placing consumes from the stack (stone drops cobblestone, grass drops
+  dirt, leaves drop nothing). `done` — including the 27-slot storage
+  opened with `E` (click to pick up / place / merge / swap stacks,
+  overflow pickups spill into storage, contents persisted in the save).
 - Item durability + a wooden pickaxe as a stub for tool tiers.
 
-## Phase 3 — Persistence
+## Phase 3 — Persistence (done)
 
 Closes: #2
 
-- Save world (block array + player pose + inventory) to a single
-  `.bgsave` file via `DataOutputStream` with a tiny header + RLE block
-  payload.
+- Save world (block array + player pose + hotbar + time of day) to a
+  single `world.bgsave` file via `DataOutputStream` with a tiny header +
+  RLE block payload. `done`
 - Load on startup if `world.bgsave` exists, otherwise regenerate from
-  seed.
-- Autosave every 60 s and on clean shutdown.
+  seed. `done`
+- Autosave every 60 s and on clean shutdown. `done`
 
-## Phase 4 — Day/night and lighting
+## Phase 4 — Day/night and lighting (in progress)
 
 Closes: #5, #6
 
-- Day/night cycle on a ~10 minute clock; sky colour and fog colour
-  interpolate between dawn/day/dusk/night.
+- Day/night cycle on a ~10 minute clock; sky colour, fog colour and a
+  global brightness factor interpolate between dawn/day/dusk/night, and
+  the clock is persisted in the save file. `done`
 - Sun-direction directional light (`GL_LIGHTING` + `GL_LIGHT0`) plus a
   basic per-block light level (sky light flood fill) so caves render
   dark. Still immediate mode for now.
@@ -81,12 +88,15 @@ Closes: rest of #3
 - This is where we finally move from `glBegin/glEnd` to VBOs per
   chunk; immediate mode cannot keep up at this scale.
 
-## Phase 6 — Physics & fluids
+## Phase 6 — Physics & fluids (in progress)
 
 Closes: #8
 
 - Smoother gravity / collision (swept-AABB instead of axis-aligned
-  point test).
+  point test). `done` — physics now mirrors vanilla's per-axis
+  resolution order (Y, then X, then Z) with the full player AABB clipped
+  against every overlapping block, so standing on block edges, landing,
+  and ceiling bonks behave like Minecraft.
 - Water spread + simple buoyancy / swim controls.
 - Lava as a damage source.
 
