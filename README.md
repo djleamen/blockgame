@@ -121,9 +121,16 @@ and click a slot to pick up a stack, click again to place, merge or swap it.
    java -XstartOnFirstThread -jar target/mc-clone-1.0-SNAPSHOT-shaded.jar
    ```
 
+   The build picks the LWJGL natives for the machine it runs on (macOS
+   arm64/x86_64, Linux amd64/arm64, Windows amd64), so the shaded jar only
+   runs on the same OS/architecture it was built on.
+
+   The world autosaves to `world.bgsave` in the working directory; delete
+   that file to start a fresh world.
+
 ## Requirements
 
-- Java Development Kit (JDK) 8 or higher
+- Java Development Kit (JDK) 11 or higher
 - Maven
 
 ## Roadmap
