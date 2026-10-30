@@ -774,10 +774,15 @@ public class World {
      * Replace the world's blocks with run-length encoded data produced by
      * {@link #writeBlocks(DataOutputStream)} and re-mesh everything.
      *
+     * <p>The payload is decoded into a scratch buffer and only copied into the
+     * live world once it has been read completely, so a truncated or corrupt
+     * save leaves the current world untouched.</p>
+     *
      * @param in source stream
      * @throws IOException on read failure or malformed payload
      */
     public void readBlocks(DataInputStream in) throws IOException {
+        int[][][] decoded = new int[SIZE][HEIGHT][SIZE];
         int total = SIZE * HEIGHT * SIZE;
         int filled = 0;
         int x = 0;
@@ -790,12 +795,17 @@ public class World {
                 throw new IOException("Corrupt RLE block payload");
             }
             for (int n = 0; n < len; n++) {
-                blocks[x][y][z] = id;
+                decoded[x][y][z] = id;
                 z++;
                 if (z == SIZE) { z = 0; y++; }
                 if (y == HEIGHT) { y = 0; x++; }
             }
             filled += len;
+        }
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < HEIGHT; j++) {
+                System.arraycopy(decoded[i][j], 0, blocks[i][j], 0, SIZE);
+            }
         }
         markAllDirty();
     }
