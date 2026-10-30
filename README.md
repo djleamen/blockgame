@@ -50,6 +50,7 @@ This project is a super basic 3D block game with heavy inspiration taken from ea
 - **Day/Night & Persistence**
   - 10-minute day/night cycle — sky colour, fog and world brightness follow the clock
   - World autosaves to `world.bgsave` every 60 seconds and on exit, and resumes on launch
+  - A corrupt or incompatible save is never overwritten: it is renamed to `world.bgsave.unreadable-<timestamp>` and a fresh world starts
 
 - **User Interface**
   - Crosshair for precise block targeting

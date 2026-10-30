@@ -41,6 +41,10 @@ public final class WorldSave {
     private static final int MAGIC = 0x42475356; // "BGSV"
     private static final int VERSION = 2;
 
+    /** Unreadable saves that could not be moved aside; never overwritten. */
+    private static final java.util.Set<File> UNPRESERVED =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /** Default save location, in the game's working directory. */
     public static final File DEFAULT_FILE = new File("world.bgsave");
 
@@ -56,6 +60,10 @@ public final class WorldSave {
      */
     public static boolean save(File file, World world, Player player, Hotbar hotbar,
                                DayNightCycle dayNight) {
+        if (UNPRESERVED.contains(file.getAbsoluteFile())) {
+            logger.warn("Not saving over {}: it holds an unreadable save that could not be backed up", file);
+            return false;
+        }
         File tmp = new File(file.getPath() + ".tmp");
         try (DataOutputStream out = new DataOutputStream(
                 new BufferedOutputStream(new FileOutputStream(tmp)))) {
@@ -103,13 +111,35 @@ public final class WorldSave {
      * and the player/hotbar state.
      *
      * @return true if the load succeeded; false if the file is missing,
-     *         corrupt, or from an incompatible world size
+     *         corrupt, or from an incompatible world size (an existing but
+     *         unreadable file is renamed to {@code *.unreadable-<millis>})
      */
     public static boolean load(File file, World world, Player player, Hotbar hotbar,
                                DayNightCycle dayNight) {
         if (!file.isFile()) {
             return false;
         }
+        if (readInto(file, world, player, hotbar, dayNight)) {
+            return true;
+        }
+        // The game keeps running on a fresh world and autosaves within a
+        // minute, which would overwrite this file. Move it aside first so an
+        // unreadable or incompatible save is never silently destroyed.
+        File backup = new File(file.getPath() + ".unreadable-" + System.currentTimeMillis());
+        try {
+            java.nio.file.Files.move(file.toPath(), backup.toPath());
+            logger.warn("Kept the unreadable save as {} — starting a fresh world", backup);
+        } catch (IOException e) {
+            // Couldn't move it, so never write over it either: this session
+            // plays without saving rather than destroying the only copy.
+            UNPRESERVED.add(file.getAbsoluteFile());
+            logger.error("Could not back up unreadable save {}; saving is disabled for this session", file, e);
+        }
+        return false;
+    }
+
+    private static boolean readInto(File file, World world, Player player, Hotbar hotbar,
+                                    DayNightCycle dayNight) {
         try (DataInputStream in = new DataInputStream(
                 new BufferedInputStream(new FileInputStream(file)))) {
             if (in.readInt() != MAGIC) {
@@ -136,6 +166,12 @@ public final class WorldSave {
             float yaw = in.readFloat();
 
             float timeOfDay = in.readFloat();
+            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)
+                    || !Float.isFinite(pitch) || !Float.isFinite(yaw)
+                    || !Float.isFinite(timeOfDay)) {
+                logger.warn("Save {} has a non-finite player pose or clock — ignoring", file);
+                return false;
+            }
 
             int selected = in.readInt();
             int[] ids = new int[Hotbar.slotCount()];
