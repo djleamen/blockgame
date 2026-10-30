@@ -41,6 +41,10 @@ public final class WorldSave {
     private static final int MAGIC = 0x42475356; // "BGSV"
     private static final int VERSION = 2;
 
+    /** Unreadable saves that could not be moved aside; never overwritten. */
+    private static final java.util.Set<File> UNPRESERVED =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /** Default save location, in the game's working directory. */
     public static final File DEFAULT_FILE = new File("world.bgsave");
 
@@ -56,6 +60,10 @@ public final class WorldSave {
      */
     public static boolean save(File file, World world, Player player, Hotbar hotbar,
                                DayNightCycle dayNight) {
+        if (UNPRESERVED.contains(file.getAbsoluteFile())) {
+            logger.warn("Not saving over {}: it holds an unreadable save that could not be backed up", file);
+            return false;
+        }
         File tmp = new File(file.getPath() + ".tmp");
         try (DataOutputStream out = new DataOutputStream(
                 new BufferedOutputStream(new FileOutputStream(tmp)))) {
@@ -122,7 +130,10 @@ public final class WorldSave {
             java.nio.file.Files.move(file.toPath(), backup.toPath());
             logger.warn("Kept the unreadable save as {} — starting a fresh world", backup);
         } catch (IOException e) {
-            logger.warn("Could not back up unreadable save {}: {}", file, e.getMessage());
+            // Couldn't move it, so never write over it either: this session
+            // plays without saving rather than destroying the only copy.
+            UNPRESERVED.add(file.getAbsoluteFile());
+            logger.error("Could not back up unreadable save {}; saving is disabled for this session", file, e);
         }
         return false;
     }
